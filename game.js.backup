@@ -1,0 +1,586 @@
+import Cube3D from './cube3d.js';
+
+const TOOLS = [
+    { name: 'Genesis Miner', hits: 1, coinsPerBreak: 1, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'Bronze Miner', hits: 1, coinsPerBreak: 2, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
+    { name: 'Silver Miner', hits: 1, coinsPerBreak: 3, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
+    { name: 'Gold Miner', hits: 1, coinsPerBreak: 4, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
+    { name: 'Platinum Miner', hits: 1, coinsPerBreak: 5, cost: 0, image: 'assets/gold_pickaxe.png', model: null },
+    { name: 'Diamond Miner', hits: 1, coinsPerBreak: 6, cost: 0, image: 'assets/platinum_pickaxe.png', model: null },
+    { name: 'Quantum Miner', hits: 1, coinsPerBreak: 7, cost: 0, image: 'assets/netherite_pickaxe.png', model: null },
+    { name: 'Crypto Miner', hits: 1, coinsPerBreak: 8, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'DeFi Miner', hits: 1, coinsPerBreak: 9, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
+    { name: 'NFT Miner', hits: 1, coinsPerBreak: 10, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
+    { name: 'DAO Miner', hits: 1, coinsPerBreak: 15, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
+    { name: 'Validator Miner', hits: 1, coinsPerBreak: 20, cost: 0, image: 'assets/gold_pickaxe.png', model: null },
+    { name: 'Staking Miner', hits: 1, coinsPerBreak: 25, cost: 0, image: 'assets/platinum_pickaxe.png', model: null },
+    { name: 'Metaverse Miner', hits: 1, coinsPerBreak: 30, cost: 0, image: 'assets/netherite_pickaxe.png', model: null },
+    { name: 'Web3 Miner', hits: 1, coinsPerBreak: 35, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'Smart Contract', hits: 1, coinsPerBreak: 40, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
+    { name: 'Blockchain Miner', hits: 1, coinsPerBreak: 60, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
+    { name: 'Solana Miner', hits: 1, coinsPerBreak: 80, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
+    { name: 'Phantom Miner', hits: 1, coinsPerBreak: 100, cost: 0, image: 'assets/gold_pickaxe.png', model: null },
+    { name: 'Ledger Miner', hits: 1, coinsPerBreak: 120, cost: 0, image: 'assets/platinum_pickaxe.png', model: null },
+    { name: 'Consensus Miner', hits: 1, coinsPerBreak: 140, cost: 0, image: 'assets/netherite_pickaxe.png', model: null },
+    { name: 'Proof-of-Work', hits: 1, coinsPerBreak: 190, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'Proof-of-Stake', hits: 1, coinsPerBreak: 240, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
+    { name: 'Decentralized', hits: 1, coinsPerBreak: 290, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
+    { name: 'Satoshi Miner', hits: 1, coinsPerBreak: 340, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
+    { name: 'Genesis Block', hits: 1, coinsPerBreak: 390, cost: 0, image: 'assets/gold_pickaxe.png', model: null }
+];
+
+class Game {
+    constructor() {
+        this.coins = 0;
+        this.currentToolIndex = 0;
+        this.currentHits = 0;
+        this.totalMined = 0;
+        this.unlockedTools = [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
+        
+        this.wallet = null;
+        this.connection = null;
+        this.isWalletConnected = false;
+        
+        this.cubeContainer = document.getElementById('cubeContainer');
+        this.coinCountElement = document.getElementById('coinCount');
+        this.walletBtn = document.getElementById('walletBtn');
+        this.walletText = document.getElementById('walletText');
+        this.walletAddress = document.getElementById('walletAddress');
+        this.networkStatus = document.getElementById('networkStatus');
+        this.blockHeight = document.getElementById('blockHeight');
+        this.hashRate = document.getElementById('hashRate');
+        this.totalMinedElement = document.getElementById('totalMined');
+        this.shopBtn = document.getElementById('shopBtn');
+        this.shopDropdown = document.getElementById('shopDropdown');
+        this.cube3D = null;
+        
+        this.chatContainer = document.getElementById('chatContainer');
+        this.chatBody = document.getElementById('chatBody');
+        this.chatMessages = document.getElementById('chatMessages');
+        this.chatInput = document.getElementById('chatInput');
+        this.chatSendBtn = document.getElementById('chatSendBtn');
+        this.chatToggleBtn = document.getElementById('chatToggleBtn');
+        this.username = this.generateUsername();
+        this.chatHistory = [];
+        
+        this.hitSound = new Audio('assets/sounds/782969__qubodup__good-phone-notification-sound.wav');
+        this.breakSound = new Audio('assets/sounds/break.mp3');
+        this.coinSound = new Audio('assets/sounds/coin.mp3');
+        this.buySound = new Audio('assets/sounds/buy.mp3');
+        
+        this.hitSound.volume = 0.5;
+        this.breakSound.volume = 0.6;
+        this.coinSound.volume = 0.4;
+        this.buySound.volume = 0.5;
+        
+        this.init();
+    }
+    
+    cleanupCorruptedData() {
+        // Clean up any corrupted localStorage data that might cause rendering issues
+        try {
+            const saveData = localStorage.getItem('coinMinerSave');
+            if (saveData) {
+                const parsed = JSON.parse(saveData);
+                // Validate save data structure
+                if (!parsed || typeof parsed.coins !== 'number' || !Array.isArray(parsed.unlockedTools)) {
+                    console.log('Corrupted save data found, clearing...');
+                    localStorage.removeItem('coinMinerSave');
+                }
+            }
+        } catch (error) {
+            console.log('Error reading save data, clearing...', error);
+            localStorage.removeItem('coinMinerSave');
+        }
+        
+        // Clean up chat data if corrupted
+        try {
+            const chatData = localStorage.getItem('coinMinerChat');
+            if (chatData) {
+                const parsed = JSON.parse(chatData);
+                if (!Array.isArray(parsed)) {
+                    localStorage.removeItem('coinMinerChat');
+                }
+            }
+        } catch (error) {
+            localStorage.removeItem('coinMinerChat');
+        }
+    }
+    
+    init() {
+        // Clean up any potentially corrupted data
+        this.cleanupCorruptedData();
+        
+        this.cube3D = new Cube3D('cubeContainer');
+        this.cubeContainer.addEventListener('click', (e) => this.handleCubeClick(e));
+        this.walletBtn.addEventListener('click', () => this.handleWalletClick());
+        this.shopBtn.addEventListener('click', () => this.toggleShop());
+        this.updateUI();
+        this.setupShop();
+        this.loadGame();
+        this.initBlockchain();
+        this.initChat();
+        
+        document.addEventListener('click', (e) => {
+            if (!this.shopDropdown.contains(e.target) && e.target !== this.shopBtn && !this.shopBtn.contains(e.target)) {
+                this.shopDropdown.classList.add('hidden');
+            }
+        });
+    }
+    
+    toggleShop() {
+        this.shopDropdown.classList.toggle('hidden');
+    }
+    
+    async initBlockchain() {
+        try {
+            this.connection = new solanaWeb3.Connection(
+                solanaWeb3.clusterApiUrl('devnet'),
+                'confirmed'
+            );
+            
+            this.updateBlockHeight();
+            setInterval(() => this.updateBlockHeight(), 10000);
+        } catch (error) {
+            console.log('Blockchain initialization:', error);
+        }
+    }
+    
+    async updateBlockHeight() {
+        try {
+            if (this.connection) {
+                const slot = await this.connection.getSlot();
+                this.blockHeight.textContent = slot.toLocaleString();
+            }
+        } catch (error) {
+            console.log('Block height update:', error);
+        }
+    }
+    
+    async handleWalletClick() {
+        if (this.isWalletConnected) {
+            this.disconnectWallet();
+        } else {
+            await this.connectWallet();
+        }
+    }
+    
+    async connectWallet() {
+        try {
+            if (window.solana && window.solana.isPhantom) {
+                const response = await window.solana.connect();
+                this.wallet = response.publicKey;
+                this.isWalletConnected = true;
+                
+                const address = this.wallet.toString();
+                const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`;
+                
+                this.walletText.textContent = shortAddress;
+                this.walletAddress.textContent = `Connected: ${shortAddress}`;
+                this.walletAddress.classList.remove('hidden');
+                
+                console.log('Wallet connected:', address);
+            } else {
+                alert('Please install Phantom Wallet to connect!\n\nFor demo purposes, you can continue playing without a wallet.');
+                this.walletText.textContent = 'NO WALLET';
+            }
+        } catch (error) {
+            console.log('Wallet connection error:', error);
+            alert('Wallet connection failed. You can continue playing without a wallet.');
+        }
+    }
+    
+    disconnectWallet() {
+        if (window.solana && window.solana.isPhantom) {
+            window.solana.disconnect();
+        }
+        this.wallet = null;
+        this.isWalletConnected = false;
+        this.walletText.textContent = 'CONNECT WALLET';
+        this.walletAddress.classList.add('hidden');
+        console.log('Wallet disconnected');
+    }
+    
+    handleCubeClick(e) {
+        this.currentHits++;
+        
+        this.playSound(this.hitSound);
+        
+        
+        if (this.cube3D) {
+            this.cube3D.shake();
+        }
+        
+        this.updateCracks();
+        
+        const currentTool = TOOLS[this.currentToolIndex];
+        
+        if (this.currentHits >= currentTool.hits) {
+            this.breakCube();
+        } else {
+            this.updateUI();
+        }
+    }
+    
+    updateCracks() {
+        const currentTool = TOOLS[this.currentToolIndex];
+        const crackLevel = Math.floor((this.currentHits / currentTool.hits) * 4);
+        
+        if (this.cube3D) {
+            this.cube3D.updateCracks(crackLevel);
+        }
+    }
+    
+    breakCube() {
+        this.currentHits = 0;
+        const currentTool = TOOLS[this.currentToolIndex];
+        
+        this.coins += currentTool.coinsPerBreak;
+        this.totalMined += currentTool.coinsPerBreak;
+        this.saveGame();
+        this.updateUI();
+        this.updateShop();
+        this.updateBlockchainStats();
+        
+        this.playSound(this.breakSound);
+        this.playSound(this.coinSound);
+        this.showCoinPopup(currentTool.coinsPerBreak);
+        
+        if (this.cube3D) {
+            this.cube3D.breakAnimation();
+            this.cube3D.updateCracks(0);
+        }
+    }
+    
+    updateBlockchainStats() {
+        const currentTool = TOOLS[this.currentToolIndex];
+        const hashRate = (currentTool.coinsPerBreak * 0.1).toFixed(1);
+        this.hashRate.textContent = `${hashRate} H/s`;
+        this.totalMinedElement.textContent = `${this.totalMined.toLocaleString()} ◎`;
+    }
+    
+    showCoinPopup(amount) {
+        const popup = document.createElement('div');
+        popup.className = 'coin-popup';
+        popup.textContent = `+${amount}`;
+        popup.style.left = '50%';
+        popup.style.top = '50%';
+        document.querySelector('.cube-container').appendChild(popup);
+        
+        setTimeout(() => {
+            popup.remove();
+        }, 1000);
+    }
+    
+    updateUI() {
+        this.coinCountElement.textContent = Math.floor(this.coins * 10) / 10;
+        const currentTool = TOOLS[this.currentToolIndex];
+        
+        document.getElementById('currentToolName').textContent = currentTool.name;
+        document.getElementById('currentHits').textContent = currentTool.hits;
+        document.getElementById('currentCoins').textContent = currentTool.coinsPerBreak;
+        
+        this.updateBlockchainStats();
+    }
+    
+    setupShop() {
+        const toolItems = document.querySelectorAll('.tool-item');
+        
+        toolItems.forEach((item, index) => {
+            const buyBtn = item.querySelector('.buy-btn');
+            
+            if (index === 0) {
+                item.classList.add('equipped');
+                item.classList.remove('locked');
+                buyBtn.textContent = 'Equipped';
+                buyBtn.classList.add('equipped-btn');
+                return;
+            }
+            
+            buyBtn.addEventListener('click', () => {
+                if (this.canBuyTool(index)) {
+                    this.buyTool(index);
+                }
+            });
+        });
+        
+        this.updateShop();
+    }
+    
+    canBuyTool(index) {
+        if (index === 0) return false;
+        if (this.unlockedTools[index]) return false;
+        if (!this.unlockedTools[index - 1]) return false;
+        
+        const tool = TOOLS[index];
+        return this.coins >= tool.cost;
+    }
+    
+    buyTool(index) {
+        const tool = TOOLS[index];
+        
+        if (this.coins >= tool.cost && !this.unlockedTools[index] && this.unlockedTools[index - 1]) {
+            this.coins -= tool.cost;
+            this.unlockedTools[index] = true;
+            this.currentToolIndex = index;
+            this.currentHits = 0;
+            
+                        
+            this.playSound(this.buySound);
+            
+            this.saveGame();
+            this.updateUI();
+            this.updateShop();
+        }
+    }
+    
+    updateShop() {
+        const toolItems = document.querySelectorAll('.tool-item');
+        
+        toolItems.forEach((item, index) => {
+            const buyBtn = item.querySelector('.buy-btn');
+            
+            if (this.unlockedTools[index]) {
+                item.classList.remove('locked');
+                item.classList.add('unlocked');
+                
+                if (index === this.currentToolIndex) {
+                    item.classList.add('equipped');
+                    buyBtn.textContent = 'Equipped';
+                    buyBtn.classList.add('equipped-btn');
+                    buyBtn.disabled = true;
+                } else {
+                    item.classList.remove('equipped');
+                    buyBtn.textContent = 'Equip';
+                    buyBtn.classList.remove('equipped-btn');
+                    buyBtn.disabled = false;
+                    
+                    buyBtn.onclick = () => {
+                        this.currentToolIndex = index;
+                        this.currentHits = 0;
+                        const tool = TOOLS[index];
+                        
+                        this.saveGame();
+                        this.updateUI();
+                        this.updateShop();
+                    };
+                }
+            } else {
+                if (index > 0 && this.unlockedTools[index - 1]) {
+                    const tool = TOOLS[index];
+                    buyBtn.disabled = this.coins < tool.cost;
+                    
+                    if (this.coins >= tool.cost) {
+                        item.style.opacity = '1';
+                    }
+                } else {
+                    buyBtn.disabled = true;
+                }
+            }
+        });
+    }
+    
+    playSound(audio) {
+        audio.currentTime = 0;
+        audio.play().catch(e => console.log('Audio play failed:', e));
+    }
+    
+    generateUsername() {
+        const adjectives = ['Crypto', 'Quantum', 'Pixel', 'Neon', 'Cyber', 'Digital', 'Blockchain', 'Stellar', 'Cosmic', 'Phantom'];
+        const nouns = ['Miner', 'Trader', 'Hodler', 'Whale', 'Builder', 'Validator', 'Staker', 'Pioneer', 'Legend', 'Master'];
+        const randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+        const randomNum = Math.floor(Math.random() * 999);
+        return `${randomAdj}${randomNoun}${randomNum}`;
+    }
+    
+    initChat() {
+        this.chatSendBtn.addEventListener('click', () => this.sendMessage());
+        this.chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.sendMessage();
+            }
+        });
+        this.chatToggleBtn.addEventListener('click', () => this.toggleChat());
+        
+        this.loadChatHistory();
+        this.simulateOtherPlayers();
+    }
+    
+    toggleChat() {
+        this.chatBody.classList.toggle('minimized');
+        this.chatToggleBtn.textContent = this.chatBody.classList.contains('minimized') ? '+' : '_';
+    }
+    
+    sendMessage() {
+        const message = this.chatInput.value.trim();
+        if (message.length === 0) return;
+        
+        const timestamp = this.getTimestamp();
+        const messageData = {
+            username: this.username,
+            text: message,
+            timestamp: timestamp,
+            isOwn: true
+        };
+        
+        this.addMessageToChat(messageData);
+        this.chatHistory.push(messageData);
+        this.saveChatHistory();
+        
+        this.chatInput.value = '';
+        
+        this.broadcastToLocalStorage(messageData);
+    }
+    
+    addMessageToChat(messageData) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = messageData.isOwn ? 'chat-message own-message' : 'chat-message';
+        
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'chat-message-header';
+        
+        const usernameSpan = document.createElement('span');
+        usernameSpan.className = 'chat-username';
+        usernameSpan.textContent = messageData.username;
+        
+        const timestampSpan = document.createElement('span');
+        timestampSpan.className = 'chat-timestamp';
+        timestampSpan.textContent = messageData.timestamp;
+        
+        headerDiv.appendChild(usernameSpan);
+        headerDiv.appendChild(timestampSpan);
+        
+        const textDiv = document.createElement('div');
+        textDiv.className = 'chat-message-text';
+        textDiv.textContent = messageData.text;
+        
+        messageDiv.appendChild(headerDiv);
+        messageDiv.appendChild(textDiv);
+        
+        this.chatMessages.appendChild(messageDiv);
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        
+        if (this.chatHistory.length > 50) {
+            const firstMessage = this.chatMessages.querySelector('.chat-message');
+            if (firstMessage) {
+                firstMessage.remove();
+            }
+            this.chatHistory.shift();
+        }
+    }
+    
+    getTimestamp() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+    
+    broadcastToLocalStorage(messageData) {
+        const broadcastData = {
+            ...messageData,
+            isOwn: false,
+            broadcastId: Date.now() + Math.random()
+        };
+        localStorage.setItem('chatBroadcast', JSON.stringify(broadcastData));
+    }
+    
+    simulateOtherPlayers() {
+        const messages = [
+            'Just hit 1000 coins!',
+            'Anyone else mining on devnet?',
+            'This game is addictive lol',
+            'Upgraded to Diamond Miner!',
+            'GM everyone!',
+            'To the moon! 🚀',
+            'Best clicker game ever',
+            'Just connected my wallet',
+            'How many coins do you have?',
+            'Love the blockchain theme'
+        ];
+        
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                const randomUsername = this.generateUsername();
+                const messageData = {
+                    username: randomUsername,
+                    text: randomMessage,
+                    timestamp: this.getTimestamp(),
+                    isOwn: false
+                };
+                this.addMessageToChat(messageData);
+            }
+        }, 15000);
+        
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'chatBroadcast' && e.newValue) {
+                try {
+                    const messageData = JSON.parse(e.newValue);
+                    if (messageData.username !== this.username) {
+                        this.addMessageToChat(messageData);
+                    }
+                } catch (error) {
+                    console.log('Chat broadcast error:', error);
+                }
+            }
+        });
+    }
+    
+    saveChatHistory() {
+        const recentMessages = this.chatHistory.slice(-20);
+        localStorage.setItem('coinMinerChat', JSON.stringify(recentMessages));
+    }
+    
+    loadChatHistory() {
+        const savedChat = localStorage.getItem('coinMinerChat');
+        if (savedChat) {
+            try {
+                const messages = JSON.parse(savedChat);
+                messages.forEach(msg => {
+                    this.addMessageToChat(msg);
+                });
+                this.chatHistory = messages;
+            } catch (error) {
+                console.log('Chat history load error:', error);
+            }
+        }
+    }
+    
+    saveGame() {
+        const gameState = {
+            coins: this.coins,
+            currentToolIndex: this.currentToolIndex,
+            unlockedTools: this.unlockedTools,
+            totalMined: this.totalMined
+        };
+        localStorage.setItem('coinMinerSave', JSON.stringify(gameState));
+    }
+    
+    loadGame() {
+        const savedGame = localStorage.getItem('coinMinerSave');
+        if (savedGame) {
+            const gameState = JSON.parse(savedGame);
+            this.coins = gameState.coins || 0;
+            this.currentToolIndex = gameState.currentToolIndex || 0;
+            this.unlockedTools = gameState.unlockedTools || [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
+            this.totalMined = gameState.totalMined || 0;
+            
+            const tool = TOOLS[this.currentToolIndex];
+            this.updateUI();
+            this.updateShop();
+        }
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const game = new Game();
+    
+    // Cleanup on page unload/reload to prevent rendering issues
+    window.addEventListener('beforeunload', () => {
+        if (game.cube3D) {
+            game.cube3D.forceClear();
+        }
+    });
+});

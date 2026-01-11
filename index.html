@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Coin Miner - Web3 Blockchain Game</title>
+    <link rel="stylesheet" href="style.css?v=202501110419">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@solana/spl-token@0.3.9/lib/index.iife.min.js"></script>
+</head>
+<body>
+    <div class="blockchain-bg"></div>
+    
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <h2 id="authTitle">COIN MINER</h2>
+            
+            <div id="loginForm" class="auth-form">
+                <input type="text" id="loginUsername" placeholder="USERNAME" class="auth-input" maxlength="20">
+                <input type="password" id="loginPassword" placeholder="PASSWORD" class="auth-input">
+                <button id="loginBtn" class="pixel-btn auth-btn">LOGIN</button>
+                <button id="showSignupBtn" class="pixel-btn secondary-btn">CREATE ACCOUNT</button>
+                <button id="showForgotBtn" class="pixel-btn secondary-btn">FORGOT PASSWORD?</button>
+            </div>
+            
+            <div id="signupForm" class="auth-form hidden">
+                <input type="text" id="signupUsername" placeholder="USERNAME" class="auth-input" maxlength="20">
+                <input type="password" id="signupPassword" placeholder="PASSWORD" class="auth-input" minlength="6">
+                <input type="password" id="signupPasswordConfirm" placeholder="CONFIRM PASSWORD" class="auth-input" minlength="6">
+                <button id="signupBtn" class="pixel-btn auth-btn">SIGN UP</button>
+                <button id="backToLoginBtn" class="pixel-btn secondary-btn">BACK TO LOGIN</button>
+            </div>
+            
+            <div id="seedphraseDisplay" class="auth-form hidden">
+                <h3>YOUR RECOVERY SEEDPHRASE</h3>
+                <p class="warning-text">⚠️ SAVE THIS SAFELY! YOU'LL NEED IT TO RECOVER YOUR PASSWORD ⚠️</p>
+                <div id="seedphraseWords" class="seedphrase-display"></div>
+                <button id="confirmSeedphraseBtn" class="pixel-btn auth-btn">I'VE SAVED IT</button>
+            </div>
+            
+            <div id="forgotForm" class="auth-form hidden">
+                <input type="text" id="forgotUsername" placeholder="USERNAME" class="auth-input" maxlength="20">
+                <textarea id="forgotSeedphrase" placeholder="ENTER YOUR 12-WORD SEEDPHRASE" class="auth-input seedphrase-input" rows="3"></textarea>
+                <input type="password" id="forgotNewPassword" placeholder="NEW PASSWORD" class="auth-input" minlength="6">
+                <input type="password" id="forgotNewPasswordConfirm" placeholder="CONFIRM NEW PASSWORD" class="auth-input" minlength="6">
+                <button id="recoverBtn" class="pixel-btn auth-btn">RECOVER ACCOUNT</button>
+                <button id="backToLoginBtn2" class="pixel-btn secondary-btn">BACK TO LOGIN</button>
+            </div>
+            
+            <div id="authMessage" class="auth-message hidden"></div>
+        </div>
+    </div>
+    
+    <div class="game-container hidden" id="gameContainer">
+        <div class="top-bar">
+            <div class="profile-section">
+                <button id="profileBtn" class="pixel-btn profile-btn">
+                    <span class="pixel-icon">[P]</span>
+                    <span id="profileUsername">PLAYER</span>
+                </button>
+                <div id="profileDropdown" class="profile-dropdown hidden">
+                    <div class="profile-stats">
+                        <h3>PROFILE</h3>
+                        <div class="stat-line">
+                            <span>USERNAME:</span>
+                            <span id="statUsername">---</span>
+                        </div>
+                        <div class="stat-line">
+                            <span>BALANCE:</span>
+                            <span id="statBalance">0</span>
+                        </div>
+                        <div class="stat-line">
+                            <span>TOTAL EARNED:</span>
+                            <span id="statTotalEarned">0</span>
+                        </div>
+                        <div class="stat-line">
+                            <span>WITHDRAWN:</span>
+                            <span id="statWithdrawn">0</span>
+                        </div>
+                    </div>
+                    <button id="withdrawBtn" class="pixel-btn withdraw-btn">WITHDRAW TOKENS</button>
+                    <button id="logoutBtn" class="pixel-btn secondary-btn">LOGOUT</button>
+                </div>
+            </div>
+            <div class="blockchain-stats">
+                <div class="stat-item">
+                    <span class="stat-label">TOKENS:</span>
+                    <span class="stat-value" id="tokenBalance">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">EARNED:</span>
+                    <span class="stat-value" id="tokensEarned">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="coin-display">
+            <div class="coin-wrapper">
+                <span class="pixel-icon">[◎]</span>
+                <span id="coinCount">0</span>
+                <span class="coin-label">COINS</span>
+            </div>
+        </div>
+
+        <div class="main-game">
+            <button id="shopBtn" class="pixel-btn shop-toggle-btn">
+                <span class="pixel-icon">[S]</span>
+                <span>SHOP</span>
+            </button>
+            
+            <div class="cube-container" id="cubeContainer">
+            </div>
+        </div>
+
+        <div class="shop-dropdown hidden" id="shopDropdown">
+            <h2>[UPGRADES]</h2>
+            <div class="current-tool">
+                <p>CURRENT MINER:</p>
+                <h3 id="currentToolName">Genesis Miner</h3>
+                <p class="tool-stats">POWER: <span id="currentHits">1</span> | YIELD: <span id="currentCoins">1</span> COINS</p>
+            </div>
+            
+            <div class="blockchain-info">
+                <div class="info-line">
+                    <span>[>] HASH RATE:</span>
+                    <span id="hashRate">1.0 H/s</span>
+                </div>
+                <div class="info-line">
+                    <span>[#] TOTAL MINED:</span>
+                    <span id="totalMined">0 COINS</span>
+                </div>
+            </div>
+            
+            <div class="tools-list">
+                <div class="tool-item locked" data-tool="0">
+                    <div class="tool-info">
+                        <h4>GENESIS MINER</h4>
+                        <p class="tool-description">1 CLICK → 1 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn" disabled>EQUIPPED</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="1">
+                    <div class="tool-info">
+                        <h4>BRONZE MINER</h4>
+                        <p class="tool-description">1 CLICK → 2 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="2">
+                    <div class="tool-info">
+                        <h4>SILVER MINER</h4>
+                        <p class="tool-description">1 CLICK → 3 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="3">
+                    <div class="tool-info">
+                        <h4>GOLD MINER</h4>
+                        <p class="tool-description">1 CLICK → 4 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="4">
+                    <div class="tool-info">
+                        <h4>PLATINUM MINER</h4>
+                        <p class="tool-description">1 CLICK → 5 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="5">
+                    <div class="tool-info">
+                        <h4>DIAMOND MINER</h4>
+                        <p class="tool-description">1 CLICK → 6 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="6">
+                    <div class="tool-info">
+                        <h4>QUANTUM MINER</h4>
+                        <p class="tool-description">1 CLICK → 7 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="7">
+                    <div class="tool-info">
+                        <h4>CRYPTO MINER</h4>
+                        <p class="tool-description">1 CLICK → 8 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="8">
+                    <div class="tool-info">
+                        <h4>DEFI MINER</h4>
+                        <p class="tool-description">1 CLICK → 9 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="9">
+                    <div class="tool-info">
+                        <h4>NFT MINER</h4>
+                        <p class="tool-description">1 CLICK → 10 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="10">
+                    <div class="tool-info">
+                        <h4>DAO MINER</h4>
+                        <p class="tool-description">1 CLICK → 15 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="11">
+                    <div class="tool-info">
+                        <h4>VALIDATOR MINER</h4>
+                        <p class="tool-description">1 CLICK → 20 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="12">
+                    <div class="tool-info">
+                        <h4>STAKING MINER</h4>
+                        <p class="tool-description">1 CLICK → 25 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="13">
+                    <div class="tool-info">
+                        <h4>METAVERSE MINER</h4>
+                        <p class="tool-description">1 CLICK → 30 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="14">
+                    <div class="tool-info">
+                        <h4>WEB3 MINER</h4>
+                        <p class="tool-description">1 CLICK → 35 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="15">
+                    <div class="tool-info">
+                        <h4>SMART CONTRACT</h4>
+                        <p class="tool-description">1 CLICK → 40 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="16">
+                    <div class="tool-info">
+                        <h4>BLOCKCHAIN MINER</h4>
+                        <p class="tool-description">1 CLICK → 60 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="17">
+                    <div class="tool-info">
+                        <h4>SOLANA MINER</h4>
+                        <p class="tool-description">1 CLICK → 80 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="18">
+                    <div class="tool-info">
+                        <h4>PHANTOM MINER</h4>
+                        <p class="tool-description">1 CLICK → 100 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="19">
+                    <div class="tool-info">
+                        <h4>LEDGER MINER</h4>
+                        <p class="tool-description">1 CLICK → 120 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="20">
+                    <div class="tool-info">
+                        <h4>CONSENSUS MINER</h4>
+                        <p class="tool-description">1 CLICK → 140 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="21">
+                    <div class="tool-info">
+                        <h4>PROOF-OF-WORK</h4>
+                        <p class="tool-description">1 CLICK → 190 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="22">
+                    <div class="tool-info">
+                        <h4>PROOF-OF-STAKE</h4>
+                        <p class="tool-description">1 CLICK → 240 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="23">
+                    <div class="tool-info">
+                        <h4>DECENTRALIZED</h4>
+                        <p class="tool-description">1 CLICK → 290 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="24">
+                    <div class="tool-info">
+                        <h4>SATOSHI MINER</h4>
+                        <p class="tool-description">1 CLICK → 340 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+
+                <div class="tool-item locked" data-tool="25">
+                    <div class="tool-info">
+                        <h4>GENESIS BLOCK</h4>
+                        <p class="tool-description">1 CLICK → 390 COINS</p>
+                        <p class="tool-cost">FREE</p>
+                    </div>
+                    <button class="buy-btn">BUY</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="chat-header">
+                <span class="pixel-icon">[C]</span>
+                <span>LIVE CHAT</span>
+                <button class="chat-toggle-btn" id="chatToggleBtn">_</button>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="system-message">Welcome to Coin Miner! Chat with other players...</div>
+                </div>
+                <div class="chat-input-wrapper">
+                    <input 
+                        type="text" 
+                        id="chatInput" 
+                        class="chat-input" 
+                        placeholder="Type message..." 
+                        maxlength="100"
+                    />
+                    <button class="chat-send-btn" id="chatSendBtn">
+                        <span>▶</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="withdrawModal" class="auth-modal hidden">
+        <div class="auth-modal-content">
+            <h2>WITHDRAW TOKENS</h2>
+            <div class="auth-form">
+                <p class="info-text">Enter your Phantom wallet address to receive memecoins</p>
+                <div class="stat-line">
+                    <span>AVAILABLE BALANCE:</span>
+                    <span id="withdrawBalance">0</span>
+                </div>
+                <div class="stat-line">
+                    <span>MINIMUM WITHDRAWAL:</span>
+                    <span>1,000 tokens</span>
+                </div>
+                <input type="text" id="withdrawWallet" placeholder="PHANTOM WALLET ADDRESS (e.g., 7xKXtg...)" class="auth-input">
+                <input type="number" id="withdrawAmount" placeholder="AMOUNT TO WITHDRAW" class="auth-input" min="1000" step="100">
+                <button id="confirmWithdrawBtn" class="pixel-btn auth-btn">REQUEST WITHDRAWAL</button>
+                <button id="cancelWithdrawBtn" class="pixel-btn secondary-btn">CANCEL</button>
+                <div id="withdrawMessage" class="auth-message hidden"></div>
+                <p class="warning-text">⚠️ Withdrawals are processed to your Phantom wallet address ⚠️</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="game.js?v=202501110419"></script>
+</body>
+</html>
