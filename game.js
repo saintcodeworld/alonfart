@@ -64,14 +64,8 @@ class Game {
         this.profileDropdown = document.getElementById('profileDropdown');
         this.withdrawBtn = document.getElementById('withdrawBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
+        this.refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
         
-        this.chatContainer = document.getElementById('chatContainer');
-        this.chatBody = document.getElementById('chatBody');
-        this.chatMessages = document.getElementById('chatMessages');
-        this.chatInput = document.getElementById('chatInput');
-        this.chatSendBtn = document.getElementById('chatSendBtn');
-        this.chatToggleBtn = document.getElementById('chatToggleBtn');
-        this.chatHistory = [];
         
         this.hitSound = new Audio('assets/sounds/782969__qubodup__good-phone-notification-sound.wav');
         this.breakSound = null;
@@ -98,19 +92,6 @@ class Game {
         } catch (error) {
             console.log('Error reading save data, clearing...', error);
             localStorage.removeItem('coinMinerSave');
-        }
-        
-        // Clean up chat data if corrupted
-        try {
-            const chatData = localStorage.getItem('coinMinerChat');
-            if (chatData) {
-                const parsed = JSON.parse(chatData);
-                if (!Array.isArray(parsed)) {
-                    localStorage.removeItem('coinMinerChat');
-                }
-            }
-        } catch (error) {
-            localStorage.removeItem('coinMinerChat');
         }
     }
     
@@ -145,20 +126,49 @@ class Game {
         
         this.cleanupCorruptedData();
         this.cube3D = new Cube3D('cubeContainer');
+        
+        // Add click listener to the entire game container for easier clicking
+        const gameContainer = document.querySelector('.main-game');
+        gameContainer.addEventListener('click', (e) => this.handleCubeClick(e));
+        
+        // Add click listener to entire document for maximum clickability
+        document.addEventListener('click', (e) => {
+            // Prevent clicks on UI elements from triggering cube clicks
+            if (!e.target.closest('.profile-dropdown') && 
+                !e.target.closest('.shop-dropdown') && 
+                !e.target.closest('.auth-modal') &&
+                !e.target.closest('.pixel-btn') &&
+                !e.target.closest('button')) {
+                this.handleCubeClick(e);
+            }
+        });
+        
+        // Keep the original cube container click listener as backup
         this.cubeContainer.addEventListener('click', (e) => this.handleCubeClick(e));
         this.profileBtn.addEventListener('click', () => this.toggleProfile());
         
         // Start withdrawal processor for automated processing
         this.withdrawalProcessor.start();
         console.log('[DEBUG] Withdrawal processor started');
-        this.withdrawBtn.addEventListener('click', () => this.showWithdrawModal());
+        this.withdrawBtn.addEventListener('click', () => this.showClaimModal());
+        
+        // DEBUG: Setup wallet info display in profile
+        const showPrivateKeyBtn = document.getElementById('showPrivateKeyBtn');
+        const copyPrivateKeyBtn = document.getElementById('copyPrivateKeyBtn');
+        
+        if (showPrivateKeyBtn) {
+            showPrivateKeyBtn.addEventListener('click', () => this.togglePrivateKeyDisplay());
+        }
+        if (copyPrivateKeyBtn) {
+            copyPrivateKeyBtn.addEventListener('click', () => this.copyPrivateKey());
+        }
         this.logoutBtn.addEventListener('click', () => this.handleLogout());
+        this.refreshHistoryBtn.addEventListener('click', () => this.refreshWithdrawalHistory());
         this.shopBtn.addEventListener('click', () => this.toggleShop());
         
         this.updateUI();
         this.setupShop();
         this.loadGame();
-        this.initChat();
         this.loadUserStats();
         
         document.addEventListener('click', (e) => {
@@ -188,9 +198,12 @@ class Game {
         
         this.playSound(this.hitSound);
         
-        if (this.cube3D) {
-            this.cube3D.shake();
+        // Trigger fart animation on click (30% chance for surprise factor)
+        if (this.cube3D && Math.random() < 0.3) {
+            this.cube3D.fartAnimation();
         }
+        
+        // Removed shake animation for smoother experience
         
         this.updateCracks();
         
@@ -217,6 +230,13 @@ class Game {
         this.currentHits = 0;
         const currentTool = TOOLS[this.currentToolIndex];
         const tokensEarned = currentTool.coinsPerBreak;
+        
+        // Trigger fart animation on break (always happens for comedic effect)
+        if (this.cube3D) {
+            this.cube3D.fartAnimation();
+        }
+        
+        // Removed shake animation for smoother experience
         
         this.coins += tokensEarned;
         this.totalMined += tokensEarned;
@@ -260,15 +280,136 @@ class Game {
             
             this.tokenBalance.textContent = stats.current_balance.toLocaleString();
             this.tokensEarned.textContent = stats.total_earned.toLocaleString();
+            
+            // Update main coin display to show current coin balance
+            this.coinCountElement.textContent = stats.current_balance.toLocaleString();
+            
+            // DEBUG: Display wallet address in profile (shortened)
+            if (this.currentUser.wallet_address) {
+                const walletAddr = this.currentUser.wallet_address;
+                const shortAddr = walletAddr.substring(0, 8) + '...' + walletAddr.substring(walletAddr.length - 4);
+                document.getElementById('statWalletAddress').textContent = shortAddr;
+            }
+            
+            await this.loadWithdrawalHistory();
         } catch (error) {
             console.error('[ERROR] Failed to load user stats:', error);
         }
     }
     
+    async loadWithdrawalHistory() {
+        console.log('[DEBUG] Loading withdrawal history');
+        if (!this.currentUser) return;
+        
+        try {
+            const withdrawals = await this.withdrawalService.getWithdrawalHistory(this.currentUser.id);
+            console.log('[DEBUG] Withdrawal history loaded:', withdrawals);
+            
+            this.displayWithdrawalHistory(withdrawals);
+        } catch (error) {
+            console.error('[ERROR] Failed to load withdrawal history:', error);
+        }
+    }
+    
+    async refreshWithdrawalHistory() {
+        console.log('[DEBUG] Manually refreshing withdrawal history');
+        if (!this.currentUser) return;
+        
+        try {
+            // Show loading state
+            const historyList = document.getElementById('withdrawalHistoryList');
+            historyList.innerHTML = '<div class="no-withdrawals">Loading...</div>';
+            
+            await this.loadWithdrawalHistory();
+            console.log('[DEBUG] Withdrawal history refreshed successfully');
+        } catch (error) {
+            console.error('[ERROR] Failed to refresh withdrawal history:', error);
+            const historyList = document.getElementById('withdrawalHistoryList');
+            historyList.innerHTML = '<div class="no-withdrawals">Error loading history</div>';
+        }
+    }
+
+    displayWithdrawalHistory(withdrawals) {
+        console.log('[DEBUG] Displaying withdrawal history');
+        console.log('[DEBUG] Withdrawals data:', withdrawals);
+        const historyList = document.getElementById('withdrawalHistoryList');
+        
+        if (!withdrawals || withdrawals.length === 0) {
+            console.log('[DEBUG] No withdrawals found, showing default message');
+            historyList.innerHTML = '<div class="no-withdrawals">No withdrawals yet</div>';
+            return;
+        }
+        
+        console.log(`[DEBUG] Found ${withdrawals.length} withdrawals`);
+        historyList.innerHTML = '';
+        
+        withdrawals.forEach((withdrawal, index) => {
+            console.log(`[DEBUG] Processing withdrawal ${index + 1}:`, withdrawal);
+            const item = document.createElement('div');
+            item.className = `withdrawal-item ${withdrawal.status}`;
+            
+            const amount = document.createElement('div');
+            amount.className = 'withdrawal-amount';
+            amount.textContent = `${withdrawal.amount.toLocaleString()} TOKENS`;
+            
+            const date = document.createElement('div');
+            date.className = 'withdrawal-date';
+            const withdrawalDate = new Date(withdrawal.created_at);
+            date.textContent = withdrawalDate.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const details = document.createElement('div');
+            details.className = 'withdrawal-details';
+            
+            const status = document.createElement('span');
+            status.className = `withdrawal-status ${withdrawal.status}`;
+            status.textContent = withdrawal.status;
+            
+            details.appendChild(status);
+            
+            console.log(`[DEBUG] Transaction hash for withdrawal ${index + 1}:`, withdrawal.transaction_hash);
+            if (withdrawal.transaction_hash) {
+                console.log(`[DEBUG] Creating Solscan link for transaction: ${withdrawal.transaction_hash}`);
+                
+                // Add only Solscan button (no transaction hash text)
+                const solscanBtn = document.createElement('a');
+                solscanBtn.className = 'solscan-btn';
+                solscanBtn.href = `https://solscan.io/tx/${withdrawal.transaction_hash}`;
+                solscanBtn.target = '_blank';
+                solscanBtn.rel = 'noopener noreferrer';
+                solscanBtn.textContent = 'VIEW TX';
+                details.appendChild(solscanBtn);
+                console.log(`[DEBUG] Solscan button added for withdrawal ${index + 1}`);
+            } else {
+                console.log(`[DEBUG] No transaction hash found for withdrawal ${index + 1}`);
+            }
+            
+            const wallet = document.createElement('div');
+            wallet.className = 'withdrawal-wallet';
+            const walletAddr = withdrawal.phantom_wallet_address;
+            wallet.textContent = `TO: ${walletAddr.substring(0, 4)}...${walletAddr.substring(walletAddr.length - 4)}`;
+            
+            item.appendChild(amount);
+            item.appendChild(date);
+            item.appendChild(wallet);
+            item.appendChild(details);
+            
+            historyList.appendChild(item);
+            console.log(`[DEBUG] Withdrawal ${index + 1} added to DOM`);
+        });
+        
+        console.log('[DEBUG] All withdrawals processed and displayed');
+    }
+    
     showCoinPopup(amount) {
         const popup = document.createElement('div');
         popup.className = 'coin-popup';
-        popup.textContent = `+${amount}`;
+        popup.textContent = `+${amount.toLocaleString()}`;
         popup.style.left = '50%';
         popup.style.top = '50%';
         document.querySelector('.cube-container').appendChild(popup);
@@ -279,12 +420,21 @@ class Game {
     }
     
     updateUI() {
-        this.coinCountElement.textContent = Math.floor(this.coins * 10) / 10;
+        // Show current token balance if logged in, otherwise show internal coin count
+        if (this.currentUser) {
+            // When logged in, show the current token balance (same as top-right display)
+            const currentBalance = parseFloat(this.tokenBalance.textContent.replace(/,/g, ''));
+            this.coinCountElement.textContent = currentBalance.toLocaleString();
+        } else {
+            // When not logged in, show the internal coin count
+            this.coinCountElement.textContent = Math.floor(this.coins).toLocaleString();
+        }
+        
         const currentTool = TOOLS[this.currentToolIndex];
         
         document.getElementById('currentToolName').textContent = currentTool.name;
         document.getElementById('currentHits').textContent = currentTool.hits;
-        document.getElementById('currentCoins').textContent = currentTool.coinsPerBreak;
+        document.getElementById('currentCoins').textContent = currentTool.coinsPerBreak.toLocaleString();
         
         document.getElementById('hashRate').textContent = `${(currentTool.coinsPerBreak * 0.1).toFixed(1)} H/s`;
         document.getElementById('totalMined').textContent = `${this.totalMined.toLocaleString()} TOKENS`;
@@ -407,188 +557,37 @@ class Game {
         return `${randomAdj}${randomNoun}${randomNum}`;
     }
     
-    initChat() {
-        this.chatSendBtn.addEventListener('click', () => this.sendMessage());
-        this.chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.sendMessage();
-            }
-        });
-        this.chatToggleBtn.addEventListener('click', () => this.toggleChat());
-        
-        this.loadChatHistory();
-        this.simulateOtherPlayers();
-    }
     
-    toggleChat() {
-        this.chatBody.classList.toggle('minimized');
-        this.chatToggleBtn.textContent = this.chatBody.classList.contains('minimized') ? '+' : '_';
-    }
     
-    sendMessage() {
-        const message = this.chatInput.value.trim();
-        if (message.length === 0) return;
-        
-        const timestamp = this.getTimestamp();
-        const messageData = {
-            username: this.username,
-            text: message,
-            timestamp: timestamp,
-            isOwn: true
-        };
-        
-        this.addMessageToChat(messageData);
-        this.chatHistory.push(messageData);
-        this.saveChatHistory();
-        
-        this.chatInput.value = '';
-        
-        this.broadcastToLocalStorage(messageData);
-    }
     
-    addMessageToChat(messageData) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = messageData.isOwn ? 'chat-message own-message' : 'chat-message';
-        
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'chat-message-header';
-        
-        const usernameSpan = document.createElement('span');
-        usernameSpan.className = 'chat-username';
-        usernameSpan.textContent = messageData.username;
-        
-        const timestampSpan = document.createElement('span');
-        timestampSpan.className = 'chat-timestamp';
-        timestampSpan.textContent = messageData.timestamp;
-        
-        headerDiv.appendChild(usernameSpan);
-        headerDiv.appendChild(timestampSpan);
-        
-        const textDiv = document.createElement('div');
-        textDiv.className = 'chat-message-text';
-        textDiv.textContent = messageData.text;
-        
-        messageDiv.appendChild(headerDiv);
-        messageDiv.appendChild(textDiv);
-        
-        this.chatMessages.appendChild(messageDiv);
-        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-        
-        if (this.chatHistory.length > 50) {
-            const firstMessage = this.chatMessages.querySelector('.chat-message');
-            if (firstMessage) {
-                firstMessage.remove();
-            }
-            this.chatHistory.shift();
-        }
-    }
     
-    getTimestamp() {
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        return `${hours}:${minutes}`;
-    }
     
-    broadcastToLocalStorage(messageData) {
-        const broadcastData = {
-            ...messageData,
-            isOwn: false,
-            broadcastId: Date.now() + Math.random()
-        };
-        localStorage.setItem('chatBroadcast', JSON.stringify(broadcastData));
-    }
     
-    simulateOtherPlayers() {
-        const messages = [
-            'Just hit 1000 coins!',
-            'Anyone else mining on devnet?',
-            'This game is addictive lol',
-            'Upgraded to Diamond Miner!',
-            'GM everyone!',
-            'To the moon! 🚀',
-            'Best clicker game ever',
-            'Just connected my wallet',
-            'How many coins do you have?',
-            'Love the blockchain theme'
-        ];
-        
-        setInterval(() => {
-            if (Math.random() > 0.7) {
-                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-                const randomUsername = this.generateUsername();
-                const messageData = {
-                    username: randomUsername,
-                    text: randomMessage,
-                    timestamp: this.getTimestamp(),
-                    isOwn: false
-                };
-                this.addMessageToChat(messageData);
-            }
-        }, 15000);
-        
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'chatBroadcast' && e.newValue) {
-                try {
-                    const messageData = JSON.parse(e.newValue);
-                    if (messageData.username !== this.username) {
-                        this.addMessageToChat(messageData);
-                    }
-                } catch (error) {
-                    console.log('Chat broadcast error:', error);
-                }
-            }
-        });
-    }
     
-    saveChatHistory() {
-        const recentMessages = this.chatHistory.slice(-20);
-        localStorage.setItem('coinMinerChat', JSON.stringify(recentMessages));
-    }
     
-    loadChatHistory() {
-        const savedChat = localStorage.getItem('coinMinerChat');
-        if (savedChat) {
-            try {
-                const messages = JSON.parse(savedChat);
-                messages.forEach(msg => {
-                    this.addMessageToChat(msg);
-                });
-                this.chatHistory = messages;
-            } catch (error) {
-                console.log('Chat history load error:', error);
-            }
-        }
-    }
     
     setupAuthListeners() {
         console.log('[DEBUG] Setting up auth listeners');
         
         const loginBtn = document.getElementById('loginBtn');
         const signupBtn = document.getElementById('signupBtn');
-        const recoverBtn = document.getElementById('recoverBtn');
         const showSignupBtn = document.getElementById('showSignupBtn');
-        const showForgotBtn = document.getElementById('showForgotBtn');
         const backToLoginBtn = document.getElementById('backToLoginBtn');
-        const backToLoginBtn2 = document.getElementById('backToLoginBtn2');
         const confirmSeedphraseBtn = document.getElementById('confirmSeedphraseBtn');
         
+        // DEBUG: New auth flow - seed phrase based
         loginBtn.addEventListener('click', () => this.handleLogin());
         signupBtn.addEventListener('click', () => this.handleSignup());
-        recoverBtn.addEventListener('click', () => this.handleRecover());
         confirmSeedphraseBtn.addEventListener('click', () => this.confirmSeedphrase());
         
         showSignupBtn.addEventListener('click', () => this.showSignupForm());
-        showForgotBtn.addEventListener('click', () => this.showForgotForm());
         backToLoginBtn.addEventListener('click', () => this.showLoginForm());
-        backToLoginBtn2.addEventListener('click', () => this.showLoginForm());
     }
     
     showLoginForm() {
         console.log('[DEBUG] Showing login form');
         document.getElementById('loginForm').classList.remove('hidden');
         document.getElementById('signupForm').classList.add('hidden');
-        document.getElementById('forgotForm').classList.add('hidden');
         document.getElementById('seedphraseDisplay').classList.add('hidden');
         this.hideAuthMessage();
     }
@@ -597,77 +596,56 @@ class Game {
         console.log('[DEBUG] Showing signup form');
         document.getElementById('loginForm').classList.add('hidden');
         document.getElementById('signupForm').classList.remove('hidden');
-        document.getElementById('forgotForm').classList.add('hidden');
-        document.getElementById('seedphraseDisplay').classList.add('hidden');
-        this.hideAuthMessage();
-    }
-    
-    showForgotForm() {
-        console.log('[DEBUG] Showing forgot password form');
-        document.getElementById('loginForm').classList.add('hidden');
-        document.getElementById('signupForm').classList.add('hidden');
-        document.getElementById('forgotForm').classList.remove('hidden');
         document.getElementById('seedphraseDisplay').classList.add('hidden');
         this.hideAuthMessage();
     }
     
     async handleLogin() {
-        console.log('[DEBUG] Login attempt');
-        const username = document.getElementById('loginUsername').value.trim();
-        const password = document.getElementById('loginPassword').value;
+        console.log('[DEBUG] Login attempt with seed phrase');
+        const seedphrase = document.getElementById('loginSeedphrase').value.trim().toLowerCase();
         
-        if (!username || !password) {
-            this.showAuthMessage('Please enter username and password', 'error');
+        if (!seedphrase) {
+            this.showAuthMessage('Please enter your seed phrase', 'error');
+            return;
+        }
+        
+        // DEBUG: Validate seed phrase has 12 words
+        const words = seedphrase.split(/\s+/);
+        if (words.length !== 12) {
+            this.showAuthMessage('Seed phrase must be exactly 12 words', 'error');
             return;
         }
         
         try {
-            const result = await this.authManager.signIn(username, password);
+            const result = await this.authManager.signIn(seedphrase);
             console.log('[DEBUG] Login successful');
             this.currentUser = result.user;
             this.showGame();
         } catch (error) {
             console.error('[ERROR] Login failed:', error);
-            this.showAuthMessage('Login failed. Check your credentials.', 'error');
+            this.showAuthMessage(error.message || 'Login failed. Check your seed phrase.', 'error');
         }
     }
     
     async handleSignup() {
-        console.log('[DEBUG] Signup attempt');
-        const username = document.getElementById('signupUsername').value.trim();
-        const password = document.getElementById('signupPassword').value;
-        const confirmPassword = document.getElementById('signupPasswordConfirm').value;
-        
-        if (!username || !password || !confirmPassword) {
-            this.showAuthMessage('Please fill in all fields', 'error');
-            return;
-        }
-        
-        if (password.length < 6) {
-            this.showAuthMessage('Password must be at least 6 characters', 'error');
-            return;
-        }
-        
-        if (password !== confirmPassword) {
-            this.showAuthMessage('Passwords do not match', 'error');
-            return;
-        }
+        console.log('[DEBUG] Signup attempt - generating new account');
         
         try {
-            const result = await this.authManager.signUp(username, password);
-            console.log('[DEBUG] Signup successful');
+            // DEBUG: Generate new account with wallet
+            const result = await this.authManager.signUp();
+            console.log('[DEBUG] Signup successful - wallet generated');
             this.currentUser = result.user;
             this.userSeedphrase = result.seedphrase;
+            this.userWallet = result.wallet;
             
-            this.displaySeedphrase(result.seedphrase);
+            // Display seed phrase and wallet info
+            this.displaySeedphraseAndWallet(result.seedphrase, result.wallet);
         } catch (error) {
             console.error('[ERROR] Signup failed:', error);
-            let errorMessage = 'Signup failed. ';
+            let errorMessage = 'Account creation failed. ';
             
             if (error.message) {
                 errorMessage += error.message;
-            } else if (error.code === '23505') {
-                errorMessage += 'Username already exists.';
             } else {
                 errorMessage += 'Please try again.';
             }
@@ -676,11 +654,13 @@ class Game {
         }
     }
     
-    displaySeedphrase(seedphrase) {
-        console.log('[DEBUG] Displaying seedphrase');
+    // DEBUG: Display seed phrase and wallet info after registration
+    displaySeedphraseAndWallet(seedphrase, wallet) {
+        console.log('[DEBUG] Displaying seedphrase and wallet info');
         document.getElementById('signupForm').classList.add('hidden');
         document.getElementById('seedphraseDisplay').classList.remove('hidden');
         
+        // Display seed phrase words
         const words = seedphrase.split(' ');
         const seedphraseDisplay = document.getElementById('seedphraseWords');
         seedphraseDisplay.innerHTML = '';
@@ -691,19 +671,57 @@ class Game {
             seedphraseDisplay.appendChild(wordDiv);
         });
         
-        // Add copy button functionality
+        // Display wallet address
+        const walletAddressDisplay = document.getElementById('walletAddressDisplay');
+        walletAddressDisplay.textContent = wallet.publicKey;
+        
+        // Display private key
+        const privateKeyDisplay = document.getElementById('privateKeyDisplay');
+        privateKeyDisplay.textContent = wallet.privateKey;
+        
+        // Add copy buttons
+        const existingCopyBtn = document.getElementById('copySeedphraseBtn');
+        if (existingCopyBtn) existingCopyBtn.remove();
+        
         const copyBtn = document.createElement('button');
         copyBtn.id = 'copySeedphraseBtn';
         copyBtn.className = 'pixel-btn secondary-btn copy-btn';
-        copyBtn.textContent = 'COPY SEEDPHRASE';
+        copyBtn.textContent = 'COPY SEED PHRASE';
         copyBtn.style.marginTop = '15px';
         copyBtn.style.marginRight = '10px';
         
-        // Insert copy button before the confirm button
         const confirmBtn = document.getElementById('confirmSeedphraseBtn');
         confirmBtn.parentNode.insertBefore(copyBtn, confirmBtn);
         
         copyBtn.addEventListener('click', () => this.copySeedphrase(seedphrase));
+        
+        // Add copy wallet button
+        const copyWalletBtn = document.createElement('button');
+        copyWalletBtn.id = 'copyWalletBtn';
+        copyWalletBtn.className = 'pixel-btn secondary-btn copy-btn';
+        copyWalletBtn.textContent = 'COPY PRIVATE KEY';
+        copyWalletBtn.style.marginTop = '10px';
+        
+        confirmBtn.parentNode.insertBefore(copyWalletBtn, confirmBtn);
+        
+        copyWalletBtn.addEventListener('click', () => this.copyToClipboard(wallet.privateKey, copyWalletBtn));
+    }
+    
+    // DEBUG: Generic copy to clipboard function
+    async copyToClipboard(text, button) {
+        try {
+            await navigator.clipboard.writeText(text);
+            const originalText = button.textContent;
+            button.textContent = '✓ COPIED!';
+            button.style.backgroundColor = '#4CAF50';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.backgroundColor = '';
+            }, 2000);
+        } catch (error) {
+            console.error('[ERROR] Copy failed:', error);
+            alert('Failed to copy. Please copy manually.');
+        }
     }
     
     async copySeedphrase(seedphrase) {
@@ -758,32 +776,6 @@ class Game {
         this.showGame();
     }
     
-    async handleRecover() {
-        console.log('[DEBUG] Password recovery attempt');
-        const username = document.getElementById('forgotUsername').value.trim();
-        const seedphrase = document.getElementById('forgotSeedphrase').value.trim();
-        const newPassword = document.getElementById('forgotNewPassword').value;
-        const confirmPassword = document.getElementById('forgotNewPasswordConfirm').value;
-        
-        if (!username || !seedphrase || !newPassword || !confirmPassword) {
-            this.showAuthMessage('Please fill in all fields', 'error');
-            return;
-        }
-        
-        if (newPassword !== confirmPassword) {
-            this.showAuthMessage('Passwords do not match', 'error');
-            return;
-        }
-        
-        try {
-            const result = await this.authManager.recoverPassword(username, seedphrase, newPassword);
-            console.log('[DEBUG] Recovery verification successful');
-            this.showAuthMessage('Seedphrase verified! Contact support to complete password reset.', 'success');
-        } catch (error) {
-            console.error('[ERROR] Recovery failed:', error);
-            this.showAuthMessage('Recovery failed. Check username and seedphrase.', 'error');
-        }
-    }
     
     showAuthMessage(message, type) {
         const messageEl = document.getElementById('authMessage');
@@ -804,7 +796,6 @@ class Game {
             this.userSeedphrase = null;
             
             localStorage.removeItem('coinMinerSave');
-            localStorage.removeItem('coinMinerChat');
             
             window.location.reload();
         } catch (error) {
@@ -812,86 +803,123 @@ class Game {
         }
     }
     
-    showWithdrawModal() {
-        console.log('[DEBUG] Opening withdraw modal');
-        const withdrawModal = document.getElementById('withdrawModal');
-        withdrawModal.classList.remove('hidden');
+    // DEBUG: Toggle private key visibility in profile
+    async togglePrivateKeyDisplay() {
+        console.log('[DEBUG] Toggling private key display');
+        const privateKeySection = document.getElementById('privateKeySection');
+        const showBtn = document.getElementById('showPrivateKeyBtn');
+        
+        if (privateKeySection.classList.contains('hidden')) {
+            // Load and show private key
+            try {
+                const walletInfo = await this.authManager.getWalletInfo(this.currentUser.id);
+                document.getElementById('statPrivateKey').textContent = walletInfo.private_key;
+                privateKeySection.classList.remove('hidden');
+                showBtn.textContent = 'HIDE PRIVATE KEY';
+            } catch (error) {
+                console.error('[ERROR] Failed to load private key:', error);
+            }
+        } else {
+            privateKeySection.classList.add('hidden');
+            showBtn.textContent = 'SHOW PRIVATE KEY';
+        }
+    }
+    
+    // DEBUG: Copy private key from profile
+    async copyPrivateKey() {
+        const privateKey = document.getElementById('statPrivateKey').textContent;
+        const copyBtn = document.getElementById('copyPrivateKeyBtn');
+        await this.copyToClipboard(privateKey, copyBtn);
+    }
+    
+    // DEBUG: Show claim rewards modal
+    showClaimModal() {
+        console.log('[DEBUG] Opening claim rewards modal');
+        const claimModal = document.getElementById('claimModal');
+        claimModal.classList.remove('hidden');
         
         if (this.currentUser) {
             this.loadUserStats().then(() => {
                 const balance = document.getElementById('statBalance').textContent;
-                document.getElementById('withdrawBalance').textContent = balance;
+                document.getElementById('claimBalance').textContent = balance;
+                
+                // Show wallet address (shortened)
+                const walletAddr = this.currentUser.wallet_address;
+                if (walletAddr) {
+                    document.getElementById('claimWalletAddress').textContent = 
+                        walletAddr.substring(0, 8) + '...' + walletAddr.substring(walletAddr.length - 4);
+                }
             });
         }
         
-        const confirmBtn = document.getElementById('confirmWithdrawBtn');
-        const cancelBtn = document.getElementById('cancelWithdrawBtn');
+        const confirmBtn = document.getElementById('confirmClaimBtn');
+        const cancelBtn = document.getElementById('cancelClaimBtn');
         
-        confirmBtn.onclick = () => this.handleWithdraw();
+        confirmBtn.onclick = () => this.handleClaimRewards();
         cancelBtn.onclick = () => {
-            withdrawModal.classList.add('hidden');
-            document.getElementById('withdrawMessage').classList.add('hidden');
+            claimModal.classList.add('hidden');
+            document.getElementById('claimMessage').classList.add('hidden');
         };
     }
     
-    async handleWithdraw() {
-        console.log('[DEBUG] Withdraw initiated');
-        const walletAddress = document.getElementById('withdrawWallet').value.trim();
-        const amount = parseInt(document.getElementById('withdrawAmount').value);
-        const messageEl = document.getElementById('withdrawMessage');
+    // DEBUG: Handle claim rewards - sends entire balance to user's wallet
+    async handleClaimRewards() {
+        console.log('[DEBUG] Claim rewards initiated');
+        const messageEl = document.getElementById('claimMessage');
         
-        if (!walletAddress) {
-            messageEl.textContent = 'Please enter wallet address';
+        if (!this.currentUser || !this.currentUser.wallet_address) {
+            messageEl.textContent = 'Wallet not found. Please re-login.';
             messageEl.className = 'auth-message error';
             messageEl.classList.remove('hidden');
             return;
         }
         
-        if (!this.withdrawalService.validateSolanaAddress(walletAddress)) {
-            messageEl.textContent = 'Invalid Phantom wallet address format';
+        // Get current balance
+        const balanceText = document.getElementById('claimBalance').textContent;
+        const balance = parseInt(balanceText.replace(/,/g, ''));
+        
+        if (!balance || balance <= 0) {
+            messageEl.textContent = 'No tokens to claim.';
             messageEl.className = 'auth-message error';
             messageEl.classList.remove('hidden');
             return;
         }
         
-        if (!amount || amount <= 0) {
-            messageEl.textContent = 'Please enter valid amount';
-            messageEl.className = 'auth-message error';
-            messageEl.classList.remove('hidden');
-            return;
-        }
-        
-        if (amount < 1000) {
-            messageEl.textContent = 'Minimum withdrawal is 1,000 tokens';
+        if (balance < 1000) {
+            messageEl.textContent = 'Minimum claim is 1,000 tokens.';
             messageEl.className = 'auth-message error';
             messageEl.classList.remove('hidden');
             return;
         }
         
         try {
+            messageEl.textContent = 'Processing claim... Please wait.';
+            messageEl.className = 'auth-message';
+            messageEl.classList.remove('hidden');
+            
+            // DEBUG: Send entire balance to user's generated wallet
             const result = await this.withdrawalService.createWithdrawalRequest(
                 this.currentUser.id,
-                amount,
-                walletAddress
+                balance,
+                this.currentUser.wallet_address
             );
             
-            console.log('[DEBUG] Withdrawal created successfully:', result);
-            messageEl.textContent = 'Withdrawal request submitted! Tokens will be sent to your Phantom wallet.';
+            console.log('[DEBUG] Claim successful:', result);
+            messageEl.textContent = 'Tokens claimed successfully! Check your wallet.';
             messageEl.className = 'auth-message success';
             messageEl.classList.remove('hidden');
             
             await this.loadUserStats();
+            await this.loadWithdrawalHistory();
             
             setTimeout(() => {
-                document.getElementById('withdrawModal').classList.add('hidden');
+                document.getElementById('claimModal').classList.add('hidden');
                 messageEl.classList.add('hidden');
-                document.getElementById('withdrawWallet').value = '';
-                document.getElementById('withdrawAmount').value = '';
             }, 3000);
             
         } catch (error) {
-            console.error('[ERROR] Withdrawal failed:', error);
-            messageEl.textContent = error.message || 'Withdrawal failed. Check your balance.';
+            console.error('[ERROR] Claim failed:', error);
+            messageEl.textContent = error.message || 'Claim failed. Please try again.';
             messageEl.className = 'auth-message error';
             messageEl.classList.remove('hidden');
         }

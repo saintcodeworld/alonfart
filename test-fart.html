@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fart Animation Test</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        body { 
+            margin: 0; 
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #container { 
+            width: 100vw; 
+            height: 80vh; 
+            border: 2px solid #333;
+        }
+        .controls {
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .info {
+            margin: 10px 0;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h2>Alon Fart Animation Test</h2>
+        <button onclick="testFart()">🎺 Trigger Fart Animation</button>
+        <button onclick="testMultipleFarts()">💨 Multiple Farts</button>
+        <div class="info">Click the buttons to test the fart animation effects</div>
+    </div>
+    <div id="container"></div>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const container = document.getElementById('container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+        camera.position.set(0, 6, 15);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.offsetWidth, container.offsetHeight);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const frontLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        frontLight.position.set(0, 2, 5);
+        scene.add(frontLight);
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+
+        let alonModel = null;
+        let isFarting = false;
+        let fartSound = null;
+
+        // Initialize fart sound
+        function initFartSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            fartSound = {
+                play: () => {
+                    if (isFarting) return;
+                    
+                    isFarting = true;
+                    console.log('Playing fart sound');
+                    
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    const filter = audioContext.createBiquadFilter();
+                    
+                    oscillator.connect(filter);
+                    filter.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(40, audioContext.currentTime + 0.3);
+                    
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(200, audioContext.currentTime);
+                    filter.Q.setValueAtTime(5, audioContext.currentTime);
+                    
+                    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+                    gainNode.gain.exponentialRampToValueAtTime(0.1, audioContext.currentTime + 0.2);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.4);
+                    
+                    setTimeout(() => {
+                        isFarting = false;
+                    }, 500);
+                }
+            };
+        }
+
+        // Load Alon model
+        const loader = new GLTFLoader();
+        console.log('Loading alon.glb...');
+        
+        loader.load(
+            'alon.glb',
+            (gltf) => {
+                console.log('Alon model loaded successfully!');
+                alonModel = gltf.scene;
+                
+                // Scale and position
+                const box = new THREE.Box3().setFromObject(alonModel);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 12.0 / maxDim;
+                alonModel.scale.setScalar(scale);
+                
+                const center = box.getCenter(new THREE.Vector3());
+                alonModel.position.sub(center.multiplyScalar(scale));
+                alonModel.position.y -= 0.5;
+                alonModel.rotation.y = Math.PI / 2;
+                
+                scene.add(alonModel);
+                console.log('Model added to scene');
+                
+                // Initialize fart sound after model loads
+                initFartSound();
+            },
+            (progress) => {
+                console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
+            },
+            (error) => {
+                console.error('Failed to load alon.glb:', error);
+                // Create placeholder
+                const geometry = new THREE.SphereGeometry(1, 16, 16);
+                const material = new THREE.MeshStandardMaterial({ color: 0x4169e1 });
+                alonModel = new THREE.Mesh(geometry, material);
+                scene.add(alonModel);
+                initFartSound();
+            }
+        );
+
+        // Fart animation functions
+        function fartAnimation() {
+            if (!alonModel || isFarting) return;
+            
+            console.log('Starting fart animation');
+            
+            if (fartSound) {
+                fartSound.play();
+            }
+            
+            createFartParticles();
+            
+            const originalPosition = alonModel.position.clone();
+            const originalRotation = alonModel.rotation.clone();
+            const fartDuration = 600;
+            const startTime = Date.now();
+            
+            const fartShake = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / fartDuration;
+                
+                if (progress < 1) {
+                    const shakeAmount = 0.05 * (1 - progress);
+                    alonModel.position.x = originalPosition.x + (Math.random() - 0.5) * shakeAmount;
+                    alonModel.position.y = originalPosition.y + (Math.random() - 0.5) * shakeAmount;
+                    alonModel.rotation.z = originalRotation.z + (Math.random() - 0.5) * shakeAmount * 0.5;
+                    
+                    requestAnimationFrame(fartShake);
+                } else {
+                    alonModel.position.copy(originalPosition);
+                    alonModel.rotation.copy(originalRotation);
+                }
+            };
+            
+            fartShake();
+        }
+
+        function createFartParticles() {
+            if (!alonModel) return;
+            
+            for (let i = 0; i < 8; i++) {
+                setTimeout(() => {
+                    createSingleFartParticle();
+                }, i * 100);
+            }
+        }
+
+        function createSingleFartParticle() {
+            const particleGeometry = new THREE.SphereGeometry(0.3 + Math.random() * 0.2, 8, 8);
+            const particleMaterial = new THREE.MeshBasicMaterial({
+                color: 0x88ff88,
+                transparent: true,
+                opacity: 0.6,
+                depthWrite: false
+            });
+            
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            
+            particle.position.set(
+                (Math.random() - 0.5) * 0.8, // Increased spread on X
+                -0.8 + (Math.random() * 0.4), // Varied initial Y position
+                -0.5 + (Math.random() * 0.4) // Varied initial Z position
+            );
+            
+            alonModel.add(particle);
+            
+            const duration = 2000; // Increased duration for wider spread
+            const startTime = Date.now();
+            const initialScale = particle.scale.x;
+            const targetScale = initialScale * 5; // Increased target scale
+            
+            const animateParticle = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
+                
+                if (progress < 1 && particle.parent) {
+                    const currentScale = initialScale + (targetScale - initialScale) * progress;
+                    particle.scale.setScalar(currentScale);
+                    particle.material.opacity = 0.6 * (1 - progress); // Fade out
+                    particle.position.y += 0.02; // Move upwards more
+                    particle.position.x += (Math.random() - 0.5) * 0.02; // Add some horizontal drift
+                    particle.position.z -= 0.01; // Move slightly backward
+                    
+                    requestAnimationFrame(animateParticle);
+                } else {
+                    if (particle.parent) {
+                        particle.parent.remove(particle);
+                    }
+                    particle.geometry.dispose();
+                    particle.material.dispose();
+                }
+            };
+            
+            animateParticle();
+        }
+
+        // Global functions for buttons
+        window.testFart = fartAnimation;
+        
+        window.testMultipleFarts = () => {
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => fartAnimation(), i * 1000);
+            }
+        };
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (alonModel) {
+                alonModel.rotation.y += 0.005;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = container.offsetWidth / container.offsetHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.offsetWidth, container.offsetHeight);
+        });
+    </script>
+</body>
+</html>

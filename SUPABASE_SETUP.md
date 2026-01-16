@@ -7,11 +7,14 @@
 Run this SQL in your Supabase SQL Editor:
 
 ```sql
--- Users table for storing user profiles and token balances
+-- Users table for storing user profiles, wallet info, and token balances
+-- DEBUG: wallet_address and private_key are auto-generated on registration
 CREATE TABLE users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     username TEXT UNIQUE NOT NULL,
     seedphrase_hash TEXT NOT NULL,
+    wallet_address TEXT,  -- User's Solana public key (auto-generated)
+    private_key TEXT,     -- User's Solana private key in base58 (for claiming rewards)
     total_earned BIGINT DEFAULT 0,
     total_withdrawn BIGINT DEFAULT 0,
     current_balance BIGINT DEFAULT 0,
@@ -42,6 +45,24 @@ CREATE POLICY "Anyone can insert"
 
 -- Create index on username for faster lookups
 CREATE INDEX idx_users_username ON users(username);
+
+-- Create index on wallet_address for faster lookups
+CREATE INDEX idx_users_wallet_address ON users(wallet_address);
+
+-- Create index on seedphrase_hash for login lookups
+CREATE INDEX idx_users_seedphrase_hash ON users(seedphrase_hash);
+```
+
+### 1.1 Migration for Existing Tables (if upgrading)
+
+If you already have a users table, run this migration to add wallet columns:
+
+```sql
+-- Add wallet columns to existing users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS private_key TEXT;
+CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_users_seedphrase_hash ON users(seedphrase_hash);
 ```
 
 ### 2. Create Withdrawals Table

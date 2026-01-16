@@ -1,0 +1,33 @@
+# Sensitive Configuration Files
+treasury-config.js
+supabase-config.js
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# API Keys and Secrets
+**/config/*-secret.js
+**/*-private.js
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs
+dist/
+build/

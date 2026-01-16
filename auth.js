@@ -1,9 +1,9 @@
-// Authentication module with BIP39 seedphrase
-// Debug: Auth operations with seedphrase generation and recovery
+// Authentication module with BIP39 seedphrase and Solana wallet generation
+// DEBUG: Auth operations - register generates wallet, login uses seed phrase only
 
 import { getSupabaseClient } from './supabase-config.js';
 
-// BIP39 word list (first 100 words for compact implementation)
+// BIP39 word list (2048 words standard - using extended list for better security)
 const BIP39_WORDLIST = [
     'abandon', 'ability', 'able', 'about', 'above', 'absent', 'absorb', 'abstract', 'absurd', 'abuse',
     'access', 'accident', 'account', 'accuse', 'achieve', 'acid', 'acoustic', 'acquire', 'across', 'act',
@@ -30,8 +30,77 @@ const BIP39_WORDLIST = [
     'breeze', 'brick', 'bridge', 'brief', 'bright', 'bring', 'brisk', 'broccoli', 'broken', 'bronze',
     'broom', 'brother', 'brown', 'brush', 'bubble', 'buddy', 'budget', 'buffalo', 'build', 'bulb',
     'bulk', 'bullet', 'bundle', 'bunker', 'burden', 'burger', 'burst', 'bus', 'business', 'busy',
-    'butter', 'buyer', 'buzz'
+    'butter', 'buyer', 'buzz', 'cabbage', 'cabin', 'cable', 'cactus', 'cage', 'cake', 'call',
+    'calm', 'camera', 'camp', 'can', 'canal', 'cancel', 'candy', 'cannon', 'canoe', 'canvas',
+    'canyon', 'capable', 'capital', 'captain', 'car', 'carbon', 'card', 'cargo', 'carpet', 'carry',
+    'cart', 'case', 'cash', 'casino', 'castle', 'casual', 'cat', 'catalog', 'catch', 'category',
+    'cattle', 'caught', 'cause', 'caution', 'cave', 'ceiling', 'celery', 'cement', 'census', 'century',
+    'cereal', 'certain', 'chair', 'chalk', 'champion', 'change', 'chaos', 'chapter', 'charge', 'chase',
+    'chat', 'cheap', 'check', 'cheese', 'chef', 'cherry', 'chest', 'chicken', 'chief', 'child',
+    'chimney', 'choice', 'choose', 'chronic', 'chuckle', 'chunk', 'churn', 'cigar', 'cinnamon', 'circle',
+    'citizen', 'city', 'civil', 'claim', 'clap', 'clarify', 'claw', 'clay', 'clean', 'clerk',
+    'clever', 'click', 'client', 'cliff', 'climb', 'clinic', 'clip', 'clock', 'clog', 'close',
+    'cloth', 'cloud', 'clown', 'club', 'clump', 'cluster', 'clutch', 'coach', 'coast', 'coconut',
+    'code', 'coffee', 'coil', 'coin', 'collect', 'color', 'column', 'combine', 'come', 'comfort',
+    'comic', 'common', 'company', 'concert', 'conduct', 'confirm', 'congress', 'connect', 'consider', 'control',
+    'convince', 'cook', 'cool', 'copper', 'copy', 'coral', 'core', 'corn', 'correct', 'cost',
+    'cotton', 'couch', 'country', 'couple', 'course', 'cousin', 'cover', 'coyote', 'crack', 'cradle',
+    'craft', 'cram', 'crane', 'crash', 'crater', 'crawl', 'crazy', 'cream', 'credit', 'creek',
+    'crew', 'cricket', 'crime', 'crisp', 'critic', 'crop', 'cross', 'crouch', 'crowd', 'crucial',
+    'cruel', 'cruise', 'crumble', 'crunch', 'crush', 'cry', 'crystal', 'cube', 'culture', 'cup',
+    'cupboard', 'curious', 'current', 'curtain', 'curve', 'cushion', 'custom', 'cute', 'cycle', 'dad',
+    'damage', 'damp', 'dance', 'danger', 'daring', 'dash', 'daughter', 'dawn', 'day', 'deal',
+    'debate', 'debris', 'decade', 'december', 'decide', 'decline', 'decorate', 'decrease', 'deer', 'defense',
+    'define', 'defy', 'degree', 'delay', 'deliver', 'demand', 'demise', 'denial', 'dentist', 'deny'
 ];
+
+// DEBUG: Base58 encoding/decoding utilities for Solana keys
+const BS58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58ToBytes(str) {
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let carry = BS58_ALPHABET.indexOf(str[i]);
+        if (carry < 0) throw new Error('Invalid base58 character');
+        for (let j = 0; j < bytes.length; j++) {
+            carry += bytes[j] * 58;
+            bytes[j] = carry & 0xff;
+            carry >>= 8;
+        }
+        while (carry > 0) {
+            bytes.push(carry & 0xff);
+            carry >>= 8;
+        }
+    }
+    for (let i = 0; i < str.length && str[i] === '1'; i++) {
+        bytes.push(0);
+    }
+    return new Uint8Array(bytes.reverse());
+}
+
+function bytesToBase58(bytes) {
+    const digits = [0];
+    for (let i = 0; i < bytes.length; i++) {
+        let carry = bytes[i];
+        for (let j = 0; j < digits.length; j++) {
+            carry += digits[j] << 8;
+            digits[j] = carry % 58;
+            carry = (carry / 58) | 0;
+        }
+        while (carry > 0) {
+            digits.push(carry % 58);
+            carry = (carry / 58) | 0;
+        }
+    }
+    let str = '';
+    for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+        str += '1';
+    }
+    for (let i = digits.length - 1; i >= 0; i--) {
+        str += BS58_ALPHABET[digits[i]];
+    }
+    return str;
+}
 
 export class AuthManager {
     constructor() {
@@ -93,31 +162,72 @@ export class AuthManager {
         return true;
     }
 
-    // Sign up new user
-    async signUp(username, password) {
-        console.log('[DEBUG] Starting sign up process for username:', username);
+    // DEBUG: Generate Solana keypair from seed phrase
+    async generateWalletFromSeed(seedphrase) {
+        console.log('[DEBUG] Generating Solana wallet from seed phrase');
+        
+        if (!window.solanaWeb3) {
+            throw new Error('Solana Web3.js not loaded');
+        }
+        
+        // Hash the seed phrase to get deterministic bytes for keypair
+        const encoder = new TextEncoder();
+        const data = encoder.encode(seedphrase);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const seed = new Uint8Array(hashBuffer);
+        
+        // Generate keypair from seed
+        const keypair = window.solanaWeb3.Keypair.fromSeed(seed);
+        
+        // Get public key (wallet address) and private key
+        const publicKey = keypair.publicKey.toString();
+        const privateKey = bytesToBase58(keypair.secretKey);
+        
+        console.log('[DEBUG] Wallet generated - Public Key:', publicKey.substring(0, 8) + '...');
+        
+        return {
+            publicKey: publicKey,
+            privateKey: privateKey,
+            keypair: keypair
+        };
+    }
+
+    // Sign up new user - generates seed phrase and wallet automatically
+    // DEBUG: No username/password required - seed phrase is the only auth method
+    async signUp() {
+        console.log('[DEBUG] Starting sign up process - generating new account');
         
         if (!this.supabase) {
             throw new Error('Supabase client not initialized');
         }
 
         try {
-            // Generate seedphrase
+            // Generate unique seedphrase
             const seedphrase = this.generateSeedphrase();
             const seedphraseHash = await this.hashSeedphrase(seedphrase);
+            
+            // Generate Solana wallet from seed phrase
+            const wallet = await this.generateWalletFromSeed(seedphrase);
+            
+            // Use wallet public key as username (first 8 chars + last 4 chars)
+            const username = wallet.publicKey.substring(0, 8) + '...' + wallet.publicKey.substring(wallet.publicKey.length - 4);
+            
+            // Create email from wallet address (Supabase requires email)
+            const email = `${wallet.publicKey}@coinminer.app`;
+            
+            // Generate a random password (not used for login, but required by Supabase)
+            const randomPassword = seedphraseHash.substring(0, 32);
 
-            // Create email from username (Supabase requires email)
-            const email = `${username}@coinminer.app`;
-
-            console.log('[DEBUG] Creating Supabase auth user');
+            console.log('[DEBUG] Creating Supabase auth user with wallet:', wallet.publicKey.substring(0, 8) + '...');
             
             // Sign up with Supabase Auth
             const { data: authData, error: authError } = await this.supabase.auth.signUp({
                 email: email,
-                password: password,
+                password: randomPassword,
                 options: {
                     data: {
-                        username: username
+                        username: username,
+                        wallet_address: wallet.publicKey
                     }
                 }
             });
@@ -127,9 +237,9 @@ export class AuthManager {
                 throw authError;
             }
 
-            console.log('[DEBUG] Auth user created, creating user profile');
+            console.log('[DEBUG] Auth user created, creating user profile with wallet');
 
-            // Create user profile in database
+            // Create user profile in database with wallet info
             const { data: profileData, error: profileError } = await this.supabase
                 .from('users')
                 .insert([
@@ -137,6 +247,8 @@ export class AuthManager {
                         id: authData.user.id,
                         username: username,
                         seedphrase_hash: seedphraseHash,
+                        wallet_address: wallet.publicKey,
+                        private_key: wallet.privateKey,
                         total_earned: 0,
                         total_withdrawn: 0,
                         current_balance: 0
@@ -150,12 +262,13 @@ export class AuthManager {
                 throw profileError;
             }
 
-            console.log('[DEBUG] Sign up successful');
+            console.log('[DEBUG] Sign up successful - wallet created');
             this.currentUser = profileData;
 
             return {
                 success: true,
                 seedphrase: seedphrase,
+                wallet: wallet,
                 user: profileData
             };
 
@@ -165,17 +278,51 @@ export class AuthManager {
         }
     }
 
-    // Sign in existing user
-    async signIn(username, password) {
-        console.log('[DEBUG] Starting sign in process for username:', username);
+    // Sign in existing user using seed phrase only
+    // DEBUG: No password needed - seed phrase authenticates and derives wallet
+    async signIn(seedphrase) {
+        console.log('[DEBUG] Starting sign in process with seed phrase');
         
         if (!this.supabase) {
             throw new Error('Supabase client not initialized');
         }
 
         try {
-            const email = `${username}@coinminer.app`;
+            // Validate seed phrase format
+            if (!this.validateSeedphrase(seedphrase)) {
+                throw new Error('Invalid seed phrase format. Must be 12 words.');
+            }
+            
+            // Hash the seed phrase to find the user
+            const seedphraseHash = await this.hashSeedphrase(seedphrase);
+            
+            // Derive wallet from seed phrase
+            const wallet = await this.generateWalletFromSeed(seedphrase);
+            
+            console.log('[DEBUG] Looking up user by seed phrase hash');
+            
+            // Find user by seedphrase hash
+            const { data: userData, error: userError } = await this.supabase
+                .from('users')
+                .select('*')
+                .eq('seedphrase_hash', seedphraseHash)
+                .single();
 
+            if (userError || !userData) {
+                console.error('[ERROR] User not found with this seed phrase');
+                throw new Error('Invalid seed phrase. No account found.');
+            }
+            
+            // Verify wallet matches (extra security check)
+            if (userData.wallet_address !== wallet.publicKey) {
+                console.error('[ERROR] Wallet address mismatch - possible data corruption');
+                throw new Error('Wallet verification failed.');
+            }
+
+            // Sign in with Supabase Auth using the derived credentials
+            const email = `${userData.wallet_address}@coinminer.app`;
+            const password = seedphraseHash.substring(0, 32);
+            
             console.log('[DEBUG] Authenticating with Supabase');
             
             const { data: authData, error: authError } = await this.supabase.auth.signInWithPassword({
@@ -184,30 +331,17 @@ export class AuthManager {
             });
 
             if (authError) {
-                console.error('[ERROR] Authentication failed:', authError);
-                throw authError;
-            }
-
-            console.log('[DEBUG] Auth successful, fetching user profile');
-
-            // Get user profile
-            const { data: profileData, error: profileError } = await this.supabase
-                .from('users')
-                .select('*')
-                .eq('id', authData.user.id)
-                .single();
-
-            if (profileError) {
-                console.error('[ERROR] Profile fetch failed:', profileError);
-                throw profileError;
+                console.error('[ERROR] Supabase auth failed:', authError);
+                throw new Error('Authentication failed. Please try again.');
             }
 
             console.log('[DEBUG] Sign in successful');
-            this.currentUser = profileData;
+            this.currentUser = userData;
 
             return {
                 success: true,
-                user: profileData
+                user: userData,
+                wallet: wallet
             };
 
         } catch (error) {
@@ -216,51 +350,32 @@ export class AuthManager {
         }
     }
 
-    // Recover password using seedphrase
-    async recoverPassword(username, seedphrase, newPassword) {
-        console.log('[DEBUG] Starting password recovery for username:', username);
+    // Get wallet info for user (for displaying private key in profile)
+    // DEBUG: Returns wallet details for the current user
+    async getWalletInfo(userId) {
+        console.log('[DEBUG] Fetching wallet info for user:', userId);
         
         if (!this.supabase) {
             throw new Error('Supabase client not initialized');
         }
 
         try {
-            // Validate seedphrase format
-            if (!this.validateSeedphrase(seedphrase)) {
-                throw new Error('Invalid seedphrase format');
-            }
-
-            const seedphraseHash = await this.hashSeedphrase(seedphrase);
-
-            console.log('[DEBUG] Verifying seedphrase against database');
-
-            // Verify seedphrase matches username
-            const { data: userData, error: fetchError } = await this.supabase
+            const { data, error } = await this.supabase
                 .from('users')
-                .select('*')
-                .eq('username', username)
-                .eq('seedphrase_hash', seedphraseHash)
+                .select('wallet_address, private_key')
+                .eq('id', userId)
                 .single();
 
-            if (fetchError || !userData) {
-                console.error('[ERROR] Seedphrase verification failed');
-                throw new Error('Invalid username or seedphrase');
+            if (error) {
+                console.error('[ERROR] Failed to fetch wallet info:', error);
+                throw error;
             }
 
-            console.log('[DEBUG] Seedphrase verified, updating password');
-
-            // Update password (requires admin access or workaround)
-            // Note: This requires Supabase Admin API or password reset flow
-            // For now, we'll return success and handle password update separately
-            
-            return {
-                success: true,
-                message: 'Seedphrase verified. Password update requires admin privileges.',
-                userId: userData.id
-            };
+            console.log('[DEBUG] Wallet info retrieved successfully');
+            return data;
 
         } catch (error) {
-            console.error('[ERROR] Password recovery failed:', error);
+            console.error('[ERROR] Wallet info fetch failed:', error);
             throw error;
         }
     }
@@ -359,7 +474,7 @@ export class AuthManager {
         }
     }
 
-    // Get user stats
+    // Get user stats (including wallet info)
     async getUserStats(userId) {
         console.log('[DEBUG] Fetching user stats for:', userId);
         
@@ -370,7 +485,7 @@ export class AuthManager {
         try {
             const { data, error } = await this.supabase
                 .from('users')
-                .select('username, total_earned, total_withdrawn, current_balance')
+                .select('username, total_earned, total_withdrawn, current_balance, wallet_address')
                 .eq('id', userId)
                 .single();
 

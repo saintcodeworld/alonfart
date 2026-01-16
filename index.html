@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="style.css?v=202501110419">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <script type="importmap">
     {
         "imports": {
@@ -26,40 +25,41 @@
 <body>
     <div class="blockchain-bg"></div>
     
+    <!-- DEBUG: Auth modal - seed phrase based authentication -->
     <div id="authModal" class="auth-modal">
         <div class="auth-modal-content">
             <h2 id="authTitle">COIN MINER</h2>
             
+            <!-- Login form - seed phrase only -->
             <div id="loginForm" class="auth-form">
-                <input type="text" id="loginUsername" placeholder="USERNAME" class="auth-input" maxlength="20">
-                <input type="password" id="loginPassword" placeholder="PASSWORD" class="auth-input">
-                <button id="loginBtn" class="pixel-btn auth-btn">LOGIN</button>
-                <button id="showSignupBtn" class="pixel-btn secondary-btn">CREATE ACCOUNT</button>
-                <button id="showForgotBtn" class="pixel-btn secondary-btn">FORGOT PASSWORD?</button>
+                <p class="info-text">Enter your 12-word seed phrase to login</p>
+                <textarea id="loginSeedphrase" placeholder="Enter your 12-word seed phrase..." class="auth-input seedphrase-input" rows="3"></textarea>
+                <button id="loginBtn" class="pixel-btn auth-btn">LOGIN WITH SEED PHRASE</button>
+                <div class="divider"><span>OR</span></div>
+                <button id="showSignupBtn" class="pixel-btn secondary-btn">CREATE NEW ACCOUNT</button>
             </div>
             
+            <!-- Signup confirmation - just one button -->
             <div id="signupForm" class="auth-form hidden">
-                <input type="text" id="signupUsername" placeholder="USERNAME" class="auth-input" maxlength="20">
-                <input type="password" id="signupPassword" placeholder="PASSWORD" class="auth-input" minlength="6">
-                <input type="password" id="signupPasswordConfirm" placeholder="CONFIRM PASSWORD" class="auth-input" minlength="6">
-                <button id="signupBtn" class="pixel-btn auth-btn">SIGN UP</button>
+                <p class="info-text">Click below to generate a new account with a unique wallet</p>
+                <p class="warning-text">⚠️ You will receive a seed phrase - SAVE IT SAFELY! ⚠️</p>
+                <button id="signupBtn" class="pixel-btn auth-btn">GENERATE NEW ACCOUNT</button>
                 <button id="backToLoginBtn" class="pixel-btn secondary-btn">BACK TO LOGIN</button>
             </div>
             
+            <!-- Seed phrase display after registration -->
             <div id="seedphraseDisplay" class="auth-form hidden">
-                <h3>YOUR RECOVERY SEEDPHRASE</h3>
-                <p class="warning-text">⚠️ SAVE THIS SAFELY! YOU'LL NEED IT TO RECOVER YOUR PASSWORD ⚠️</p>
+                <h3>YOUR SEED PHRASE & WALLET</h3>
+                <p class="warning-text">⚠️ SAVE THIS SAFELY! THIS IS YOUR ONLY WAY TO LOGIN! ⚠️</p>
                 <div id="seedphraseWords" class="seedphrase-display"></div>
-                <button id="confirmSeedphraseBtn" class="pixel-btn auth-btn">I'VE SAVED IT</button>
-            </div>
-            
-            <div id="forgotForm" class="auth-form hidden">
-                <input type="text" id="forgotUsername" placeholder="USERNAME" class="auth-input" maxlength="20">
-                <textarea id="forgotSeedphrase" placeholder="ENTER YOUR 12-WORD SEEDPHRASE" class="auth-input seedphrase-input" rows="3"></textarea>
-                <input type="password" id="forgotNewPassword" placeholder="NEW PASSWORD" class="auth-input" minlength="6">
-                <input type="password" id="forgotNewPasswordConfirm" placeholder="CONFIRM NEW PASSWORD" class="auth-input" minlength="6">
-                <button id="recoverBtn" class="pixel-btn auth-btn">RECOVER ACCOUNT</button>
-                <button id="backToLoginBtn2" class="pixel-btn secondary-btn">BACK TO LOGIN</button>
+                <div id="walletDisplay" class="wallet-info-display">
+                    <p><strong>YOUR WALLET ADDRESS:</strong></p>
+                    <div id="walletAddressDisplay" class="wallet-address"></div>
+                    <p><strong>YOUR PRIVATE KEY:</strong></p>
+                    <div id="privateKeyDisplay" class="private-key"></div>
+                    <p class="warning-text">⚠️ Import this private key into Phantom to control your funds! ⚠️</p>
+                </div>
+                <button id="confirmSeedphraseBtn" class="pixel-btn auth-btn">I'VE SAVED EVERYTHING</button>
             </div>
             
             <div id="authMessage" class="auth-message hidden"></div>
@@ -93,7 +93,30 @@
                             <span id="statWithdrawn">0</span>
                         </div>
                     </div>
-                    <button id="withdrawBtn" class="pixel-btn withdraw-btn">WITHDRAW TOKENS</button>
+                    <!-- DEBUG: Wallet info section in profile -->
+                    <div class="wallet-info-section">
+                        <h4>YOUR WALLET</h4>
+                        <div class="stat-line">
+                            <span>ADDRESS:</span>
+                            <span id="statWalletAddress" class="wallet-addr-short">---</span>
+                        </div>
+                        <button id="showPrivateKeyBtn" class="pixel-btn secondary-btn" style="font-size: 6px; margin-top: 8px;">SHOW PRIVATE KEY</button>
+                        <div id="privateKeySection" class="hidden" style="margin-top: 8px;">
+                            <p style="font-size: 6px; color: #ff6b6b;">⚠️ Never share this!</p>
+                            <div id="statPrivateKey" class="private-key-display"></div>
+                            <button id="copyPrivateKeyBtn" class="pixel-btn secondary-btn" style="font-size: 6px; margin-top: 4px;">COPY</button>
+                        </div>
+                    </div>
+                    <div class="claim-history">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4>CLAIM HISTORY</h4>
+                            <button id="refreshHistoryBtn" class="pixel-btn refresh-btn" style="font-size: 6px; padding: 4px 8px;">↻</button>
+                        </div>
+                        <div id="withdrawalHistoryList" class="withdrawal-list">
+                            <div class="no-withdrawals">No claims yet</div>
+                        </div>
+                    </div>
+                    <button id="withdrawBtn" class="pixel-btn withdraw-btn">CLAIM REWARDS</button>
                     <button id="logoutBtn" class="pixel-btn secondary-btn">LOGOUT</button>
                 </div>
             </div>
@@ -382,52 +405,26 @@
                 </div>
             </div>
         </div>
-
-        <div class="chat-container" id="chatContainer">
-            <div class="chat-header">
-                <span class="pixel-icon">[C]</span>
-                <span>LIVE CHAT</span>
-                <button class="chat-toggle-btn" id="chatToggleBtn">_</button>
-            </div>
-            <div class="chat-body" id="chatBody">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="system-message">Welcome to Coin Miner! Chat with other players...</div>
-                </div>
-                <div class="chat-input-wrapper">
-                    <input 
-                        type="text" 
-                        id="chatInput" 
-                        class="chat-input" 
-                        placeholder="Type message..." 
-                        maxlength="100"
-                    />
-                    <button class="chat-send-btn" id="chatSendBtn">
-                        <span>▶</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
     
-    <div id="withdrawModal" class="auth-modal hidden">
+    <!-- DEBUG: Claim Rewards Modal - sends entire balance to user's generated wallet -->
+    <div id="claimModal" class="auth-modal hidden">
         <div class="auth-modal-content">
-            <h2>WITHDRAW TOKENS</h2>
+            <h2>CLAIM REWARDS</h2>
             <div class="auth-form">
-                <p class="info-text">Enter your Phantom wallet address to receive memecoins</p>
+                <p class="info-text">Claim your mined tokens to your wallet</p>
                 <div class="stat-line">
-                    <span>AVAILABLE BALANCE:</span>
-                    <span id="withdrawBalance">0</span>
+                    <span>YOUR BALANCE:</span>
+                    <span id="claimBalance">0</span>
                 </div>
                 <div class="stat-line">
-                    <span>MINIMUM WITHDRAWAL:</span>
-                    <span>1,000 tokens</span>
+                    <span>YOUR WALLET:</span>
+                    <span id="claimWalletAddress" class="wallet-addr-short">---</span>
                 </div>
-                <input type="text" id="withdrawWallet" placeholder="PHANTOM WALLET ADDRESS (e.g., 7xKXtg...)" class="auth-input">
-                <input type="number" id="withdrawAmount" placeholder="AMOUNT TO WITHDRAW" class="auth-input" min="1000" step="100">
-                <button id="confirmWithdrawBtn" class="pixel-btn auth-btn">REQUEST WITHDRAWAL</button>
-                <button id="cancelWithdrawBtn" class="pixel-btn secondary-btn">CANCEL</button>
-                <div id="withdrawMessage" class="auth-message hidden"></div>
-                <p class="warning-text">⚠️ Withdrawals are processed to your Phantom wallet address ⚠️</p>
+                <p class="info-text" style="margin-top: 15px;">Tokens will be sent directly to your wallet. You can import your private key into Phantom to access your funds.</p>
+                <button id="confirmClaimBtn" class="pixel-btn auth-btn">CLAIM ALL TOKENS</button>
+                <button id="cancelClaimBtn" class="pixel-btn secondary-btn">CANCEL</button>
+                <div id="claimMessage" class="auth-message hidden"></div>
+                <p class="warning-text">⚠️ Make sure you have saved your private key! ⚠️</p>
             </div>
         </div>
     </div>

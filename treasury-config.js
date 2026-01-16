@@ -1,10 +1,12 @@
 // Treasury Configuration for Automated Withdrawals
-// WARNING: This file contains sensitive information - keep secure!
+// ⚠️ SECURITY WARNING: NEVER expose this file publicly or commit to public repos!
+// Contains sensitive API keys and private keys that could compromise your wallet
 
 export const TREASURY_CONFIG = {
-    // Treasury wallet credentials
-    publicKey: 'GXEJmMfgtnqNpHzbk5moMFiMXMNB7GagjAVvTv1tZi3g',
-    privateKey: '3xKnfJf1yiWjhMfezeUAZR2Uzm991ZxKgFEXEzjNCYZsJkmVe8SxbEzyCy1br5kA3dX2SujLdV2bB8UH59tbwdi6',
+    // Treasury wallet credentials (Developer wallet for sending rewards)
+    // DEBUG: This wallet will send memecoins to users when they claim rewards
+    publicKey: '', // Will be derived from private key
+    privateKey: '2R2QJtB4gAY9qtaooui8ngRFNTbVHo88j9zHUzAUuUZrhrpHX2JWpZ4cCyjkhmkFJYwgfQHXjen27GHJDJnUf7T8',
     
     // Token configuration (update after Pump.fun deployment)
     tokenMintAddress: '3rWYgrDadQcX34jnc4rrWN9Rr3AAHCmgtoHHGFq8pump', // Your memecoin from Pump.fun
@@ -12,8 +14,8 @@ export const TREASURY_CONFIG = {
     // Network configuration
     network: 'mainnet-beta', // Use 'devnet' for testing
     
-    // RPC URL - Replace with your Helius/Alchemy key for real transactions
-    rpcUrl: 'https://mainnet.helius-rpc.com/?api-key=a22943bd-77f2-4e3c-a8d0-3b73d2afc326',
+    // RPC URL - Using valid Helius API key
+    rpcUrl: 'https://mainnet.helius-rpc.com/?api-key=82eda54f-31da-4604-8adf-39b313fdb933',
     
     // Withdrawal settings
     minWithdrawal: 1000,
@@ -59,7 +61,21 @@ export function initializeTreasuryWallet() {
         const secretKey = base58ToBytes(TREASURY_CONFIG.privateKey);
         const keypair = window.solanaWeb3.Keypair.fromSecretKey(secretKey);
         
-        console.log('[DEBUG] Treasury wallet initialized:', TREASURY_CONFIG.publicKey);
+        const derivedPublicKey = keypair.publicKey.toString();
+        const redactedDerived = derivedPublicKey.substring(0, 4) + '...' + derivedPublicKey.substring(derivedPublicKey.length - 4);
+        
+        // DEBUG: Update public key from derived value
+        TREASURY_CONFIG.publicKey = derivedPublicKey;
+        
+        console.log('[DEBUG] ========================================');
+        console.log('[DEBUG] Treasury Wallet (Developer Wallet) Initialized');
+        console.log('[DEBUG] ========================================');
+        console.log('[DEBUG] Public Key:', redactedDerived);
+        console.log('[DEBUG] Full Public Key:', derivedPublicKey);
+        console.log('[DEBUG] Private Key: ***REDACTED FOR SECURITY***');
+        console.log('[DEBUG] ✅ Treasury wallet ready for sending rewards!');
+        console.log('[DEBUG] ========================================');
+        
         return keypair;
     } catch (error) {
         console.error('[ERROR] Failed to initialize treasury wallet:', error);
