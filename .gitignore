@@ -1,8 +1,4 @@
-# Sensitive Configuration Files
-treasury-config.js
-supabase-config.js
-
-# Environment Variables
+# Environment Variables - KEEP THESE SECRET!
 .env
 .env.local
 .env.production

@@ -3,34 +3,12 @@ import { AuthManager } from './auth.js';
 import { WithdrawalService } from './withdrawal-service.js';
 import { WithdrawalProcessor } from './withdrawal-processor.js';
 import { initSupabase, getSupabaseClient } from './supabase-config.js';
+import { fakeChatManager } from './fake-chat.js';
 
 const TOOLS = [
-    { name: 'Genesis Miner', hits: 1, coinsPerBreak: 1, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'Bronze Miner', hits: 1, coinsPerBreak: 2, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
-    { name: 'Silver Miner', hits: 1, coinsPerBreak: 3, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
-    { name: 'Gold Miner', hits: 1, coinsPerBreak: 4, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
-    { name: 'Platinum Miner', hits: 1, coinsPerBreak: 5, cost: 0, image: 'assets/gold_pickaxe.png', model: null },
-    { name: 'Diamond Miner', hits: 1, coinsPerBreak: 6, cost: 0, image: 'assets/platinum_pickaxe.png', model: null },
-    { name: 'Quantum Miner', hits: 1, coinsPerBreak: 7, cost: 0, image: 'assets/netherite_pickaxe.png', model: null },
-    { name: 'Crypto Miner', hits: 1, coinsPerBreak: 8, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'DeFi Miner', hits: 1, coinsPerBreak: 9, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
-    { name: 'NFT Miner', hits: 1, coinsPerBreak: 10, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
-    { name: 'DAO Miner', hits: 1, coinsPerBreak: 15, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
-    { name: 'Validator Miner', hits: 1, coinsPerBreak: 20, cost: 0, image: 'assets/gold_pickaxe.png', model: null },
-    { name: 'Staking Miner', hits: 1, coinsPerBreak: 25, cost: 0, image: 'assets/platinum_pickaxe.png', model: null },
-    { name: 'Metaverse Miner', hits: 1, coinsPerBreak: 30, cost: 0, image: 'assets/netherite_pickaxe.png', model: null },
-    { name: 'Web3 Miner', hits: 1, coinsPerBreak: 35, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'Smart Contract', hits: 1, coinsPerBreak: 40, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
-    { name: 'Blockchain Miner', hits: 1, coinsPerBreak: 60, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
-    { name: 'Solana Miner', hits: 1, coinsPerBreak: 80, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
-    { name: 'Phantom Miner', hits: 1, coinsPerBreak: 100, cost: 0, image: 'assets/gold_pickaxe.png', model: null },
-    { name: 'Ledger Miner', hits: 1, coinsPerBreak: 120, cost: 0, image: 'assets/platinum_pickaxe.png', model: null },
-    { name: 'Consensus Miner', hits: 1, coinsPerBreak: 140, cost: 0, image: 'assets/netherite_pickaxe.png', model: null },
-    { name: 'Proof-of-Work', hits: 1, coinsPerBreak: 190, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'Proof-of-Stake', hits: 1, coinsPerBreak: 240, cost: 0, image: 'assets/wooden_pickaxe.png', model: null },
-    { name: 'Decentralized', hits: 1, coinsPerBreak: 290, cost: 0, image: 'assets/stone_pickaxe.png', model: null },
-    { name: 'Satoshi Miner', hits: 1, coinsPerBreak: 340, cost: 0, image: 'assets/iron_pickaxe.png', model: null },
-    { name: 'Genesis Block', hits: 1, coinsPerBreak: 390, cost: 0, image: 'assets/gold_pickaxe.png', model: null }
+    { name: 'The Gust of Alon', hits: 1, coinsPerBreak: 3500, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'The Aftershock', hits: 1, coinsPerBreak: 6500, cost: 350000, image: 'assets/hand.png', model: null },
+    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 14500, cost: 650000, image: 'assets/hand.png', model: null }
 ];
 
 class Game {
@@ -41,7 +19,7 @@ class Game {
         this.currentToolIndex = 0;
         this.currentHits = 0;
         this.totalMined = 0;
-        this.unlockedTools = [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
+        this.unlockedTools = [true, false, false];
         
         this.authManager = new AuthManager();
         this.withdrawalService = new WithdrawalService();
@@ -66,13 +44,10 @@ class Game {
         this.logoutBtn = document.getElementById('logoutBtn');
         this.refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
         
-        
-        this.hitSound = new Audio('assets/sounds/782969__qubodup__good-phone-notification-sound.wav');
-        this.breakSound = null;
-        this.coinSound = null;
-        this.buySound = null;
-        
-        this.hitSound.volume = 0.5;
+        // DEBUG: Load fart sound effect
+        this.fartSound = new Audio('soundscrate-fart.mp3');
+        this.fartSound.volume = 0.5;
+        console.log('[DEBUG] Fart sound loaded');
         
         this.init();
     }
@@ -137,6 +112,7 @@ class Game {
             if (!e.target.closest('.profile-dropdown') && 
                 !e.target.closest('.shop-dropdown') && 
                 !e.target.closest('.auth-modal') &&
+                !e.target.closest('.live-chat') &&
                 !e.target.closest('.pixel-btn') &&
                 !e.target.closest('button')) {
                 this.handleCubeClick(e);
@@ -171,6 +147,11 @@ class Game {
         this.loadGame();
         this.loadUserStats();
         
+        // DEBUG: Initialize fake live chat with real user wallet address
+        const userWalletAddress = this.currentUser?.wallet_address || null;
+        fakeChatManager.init(userWalletAddress);
+        console.log('[DEBUG] Fake chat initialized with user wallet:', userWalletAddress);
+        
         document.addEventListener('click', (e) => {
             if (!this.shopDropdown.contains(e.target) && e.target !== this.shopBtn && !this.shopBtn.contains(e.target)) {
                 this.shopDropdown.classList.add('hidden');
@@ -196,7 +177,11 @@ class Game {
         console.log('[DEBUG] Cube clicked');
         this.currentHits++;
         
-        this.playSound(this.hitSound);
+        // DEBUG: Play fart sound on every click
+        if (this.fartSound) {
+            this.fartSound.currentTime = 0;
+            this.fartSound.play().catch(err => console.log('[DEBUG] Sound play failed:', err));
+        }
         
         // Trigger fart animation on click (30% chance for surprise factor)
         if (this.cube3D && Math.random() < 0.3) {
@@ -254,8 +239,6 @@ class Game {
         this.updateUI();
         this.updateShop();
         
-        this.playSound(this.breakSound);
-        this.playSound(this.coinSound);
         this.showCoinPopup(tokensEarned);
         
         if (this.cube3D) {
@@ -410,9 +393,17 @@ class Game {
         const popup = document.createElement('div');
         popup.className = 'coin-popup';
         popup.textContent = `+${amount.toLocaleString()}`;
-        popup.style.left = '50%';
-        popup.style.top = '50%';
-        document.querySelector('.cube-container').appendChild(popup);
+        
+        // Position next to coin display instead of on 3D model
+        const coinDisplay = document.querySelector('.coin-display');
+        const coinDisplayRect = coinDisplay.getBoundingClientRect();
+        
+        // Position to the right of the coin display
+        popup.style.position = 'fixed';
+        popup.style.left = (coinDisplayRect.right + 10) + 'px';
+        popup.style.top = coinDisplayRect.top + 'px';
+        
+        document.body.appendChild(popup);
         
         setTimeout(() => {
             popup.remove();
@@ -487,7 +478,6 @@ class Game {
             this.currentHits = 0;
             
                         
-            this.playSound(this.buySound);
             
             this.saveGame();
             this.updateUI();
@@ -541,12 +531,6 @@ class Game {
         });
     }
     
-    playSound(audio) {
-        if (audio) {
-            audio.currentTime = 0;
-            audio.play().catch(e => console.log('Audio play failed:', e));
-        }
-    }
     
     generateUsername() {
         const adjectives = ['Crypto', 'Quantum', 'Pixel', 'Neon', 'Cyber', 'Digital', 'Blockchain', 'Stellar', 'Cosmic', 'Phantom'];

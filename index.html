@@ -7,6 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Coin Miner - Web3 Blockchain Game</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css?v=202501110419">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,8 +28,18 @@
     
     <!-- DEBUG: Auth modal - seed phrase based authentication -->
     <div id="authModal" class="auth-modal">
+        <!-- Fart icons decoration -->
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-1" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-2" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-3" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-4" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-5" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-6" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-7" alt="fart">
+        <img src="assets/images/fart-icon.svg" class="fart-icon fart-icon-8" alt="fart">
+        
         <div class="auth-modal-content">
-            <h2 id="authTitle">COIN MINER</h2>
+            <h2 id="authTitle">ALON FART</h2>
             
             <!-- Login form - seed phrase only -->
             <div id="loginForm" class="auth-form">
@@ -67,6 +78,20 @@
     </div>
     
     <div class="game-container hidden" id="gameContainer">
+        <!-- DEBUG: Fake Live Chat - local simulation for engagement -->
+        <div id="liveChat" class="live-chat">
+            <div class="chat-header">
+                <span class="chat-status-dot"></span>
+                <span>LIVE CHAT</span>
+                <span class="chat-online">● LIVE</span>
+            </div>
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Type message..." maxlength="100">
+                <button id="chatSendBtn" class="chat-send-btn">SEND</button>
+            </div>
+        </div>
+        
         <div class="top-bar">
             <div class="profile-section">
                 <button id="profileBtn" class="pixel-btn profile-btn">
@@ -134,7 +159,6 @@
 
         <div class="coin-display">
             <div class="coin-wrapper">
-                <span class="pixel-icon">[◎]</span>
                 <span id="coinCount">0</span>
                 <span class="coin-label">COINS</span>
             </div>
@@ -150,7 +174,7 @@
             </div>
         </div>
 
-        <div class="shop-dropdown hidden" id="shopDropdown">
+        <div class="shop-dropdown" id="shopDropdown">
             <h2>[UPGRADES]</h2>
             <div class="current-tool">
                 <p>CURRENT MINER:</p>
@@ -172,8 +196,8 @@
             <div class="tools-list">
                 <div class="tool-item locked" data-tool="0">
                     <div class="tool-info">
-                        <h4>GENESIS MINER</h4>
-                        <p class="tool-description">1 CLICK → 1 COINS</p>
+                        <h4>THE GUST OF ALON</h4>
+                        <p class="tool-description">1 CLICK → 3,500 COINS</p>
                         <p class="tool-cost">FREE</p>
                     </div>
                     <button class="buy-btn" disabled>EQUIPPED</button>
@@ -181,225 +205,18 @@
 
                 <div class="tool-item locked" data-tool="1">
                     <div class="tool-info">
-                        <h4>BRONZE MINER</h4>
-                        <p class="tool-description">1 CLICK → 2 COINS</p>
-                        <p class="tool-cost">FREE</p>
+                        <h4>THE AFTERSHOCK</h4>
+                        <p class="tool-description">1 CLICK → 6,500 COINS</p>
+                        <p class="tool-cost">350,000 COINS</p>
                     </div>
                     <button class="buy-btn">BUY</button>
                 </div>
 
                 <div class="tool-item locked" data-tool="2">
                     <div class="tool-info">
-                        <h4>SILVER MINER</h4>
-                        <p class="tool-description">1 CLICK → 3 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="3">
-                    <div class="tool-info">
-                        <h4>GOLD MINER</h4>
-                        <p class="tool-description">1 CLICK → 4 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="4">
-                    <div class="tool-info">
-                        <h4>PLATINUM MINER</h4>
-                        <p class="tool-description">1 CLICK → 5 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="5">
-                    <div class="tool-info">
-                        <h4>DIAMOND MINER</h4>
-                        <p class="tool-description">1 CLICK → 6 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="6">
-                    <div class="tool-info">
-                        <h4>QUANTUM MINER</h4>
-                        <p class="tool-description">1 CLICK → 7 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="7">
-                    <div class="tool-info">
-                        <h4>CRYPTO MINER</h4>
-                        <p class="tool-description">1 CLICK → 8 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="8">
-                    <div class="tool-info">
-                        <h4>DEFI MINER</h4>
-                        <p class="tool-description">1 CLICK → 9 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="9">
-                    <div class="tool-info">
-                        <h4>NFT MINER</h4>
-                        <p class="tool-description">1 CLICK → 10 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="10">
-                    <div class="tool-info">
-                        <h4>DAO MINER</h4>
-                        <p class="tool-description">1 CLICK → 15 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="11">
-                    <div class="tool-info">
-                        <h4>VALIDATOR MINER</h4>
-                        <p class="tool-description">1 CLICK → 20 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="12">
-                    <div class="tool-info">
-                        <h4>STAKING MINER</h4>
-                        <p class="tool-description">1 CLICK → 25 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="13">
-                    <div class="tool-info">
-                        <h4>METAVERSE MINER</h4>
-                        <p class="tool-description">1 CLICK → 30 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="14">
-                    <div class="tool-info">
-                        <h4>WEB3 MINER</h4>
-                        <p class="tool-description">1 CLICK → 35 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="15">
-                    <div class="tool-info">
-                        <h4>SMART CONTRACT</h4>
-                        <p class="tool-description">1 CLICK → 40 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="16">
-                    <div class="tool-info">
-                        <h4>BLOCKCHAIN MINER</h4>
-                        <p class="tool-description">1 CLICK → 60 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="17">
-                    <div class="tool-info">
-                        <h4>SOLANA MINER</h4>
-                        <p class="tool-description">1 CLICK → 80 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="18">
-                    <div class="tool-info">
-                        <h4>PHANTOM MINER</h4>
-                        <p class="tool-description">1 CLICK → 100 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="19">
-                    <div class="tool-info">
-                        <h4>LEDGER MINER</h4>
-                        <p class="tool-description">1 CLICK → 120 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="20">
-                    <div class="tool-info">
-                        <h4>CONSENSUS MINER</h4>
-                        <p class="tool-description">1 CLICK → 140 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="21">
-                    <div class="tool-info">
-                        <h4>PROOF-OF-WORK</h4>
-                        <p class="tool-description">1 CLICK → 190 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="22">
-                    <div class="tool-info">
-                        <h4>PROOF-OF-STAKE</h4>
-                        <p class="tool-description">1 CLICK → 240 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="23">
-                    <div class="tool-info">
-                        <h4>DECENTRALIZED</h4>
-                        <p class="tool-description">1 CLICK → 290 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="24">
-                    <div class="tool-info">
-                        <h4>SATOSHI MINER</h4>
-                        <p class="tool-description">1 CLICK → 340 COINS</p>
-                        <p class="tool-cost">FREE</p>
-                    </div>
-                    <button class="buy-btn">BUY</button>
-                </div>
-
-                <div class="tool-item locked" data-tool="25">
-                    <div class="tool-info">
-                        <h4>GENESIS BLOCK</h4>
-                        <p class="tool-description">1 CLICK → 390 COINS</p>
-                        <p class="tool-cost">FREE</p>
+                        <h4>THE FULL SYSTEM FLUSH</h4>
+                        <p class="tool-description">1 CLICK → 14,500 COINS</p>
+                        <p class="tool-cost">650,000 COINS</p>
                     </div>
                     <button class="buy-btn">BUY</button>
                 </div>

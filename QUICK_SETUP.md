@@ -1,6 +1,6 @@
 # Quick Setup Guide
 
-Follow these steps to get your Coin Miner game running with authentication and token system.
+Follow these steps to get your Alon Fart game running with authentication and token system.
 
 ## Step 1: Supabase Project Setup (15 minutes)
 

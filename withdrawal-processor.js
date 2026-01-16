@@ -200,7 +200,13 @@ class WithdrawalProcessor {
                     // Add a small delay to ensure lock is committed
                     await new Promise(resolve => setTimeout(resolve, 500));
                     
-                    const result = await this.withdrawalService.processWithdrawal(withdrawal.id);
+                    // DEBUG: Process withdrawal via backend API (secure)
+                    const result = await this.withdrawalService.processWithdrawalViaBackend(
+                        withdrawal.id,
+                        withdrawal.user_id,
+                        withdrawal.amount,
+                        withdrawal.phantom_wallet_address
+                    );
                     
                     if (result.success) {
                         console.log(`[DEBUG] Successfully processed withdrawal ${withdrawal.id}`);
@@ -231,11 +237,28 @@ class WithdrawalProcessor {
         }
     }
 
+    // DEBUG: Manual single withdrawal processing via backend API
     async processSingleWithdrawal(withdrawalId) {
         console.log(`[DEBUG] Manually processing withdrawal ${withdrawalId}`);
         
         try {
-            const result = await this.withdrawalService.processWithdrawal(withdrawalId);
+            // Fetch withdrawal details first
+            const { data: withdrawal, error: fetchError } = await this.withdrawalService.supabase
+                .from('withdrawals')
+                .select('*')
+                .eq('id', withdrawalId)
+                .single();
+            
+            if (fetchError || !withdrawal) {
+                throw new Error('Withdrawal not found');
+            }
+            
+            const result = await this.withdrawalService.processWithdrawalViaBackend(
+                withdrawal.id,
+                withdrawal.user_id,
+                withdrawal.amount,
+                withdrawal.phantom_wallet_address
+            );
             
             if (result.success) {
                 console.log(`[DEBUG] Successfully processed withdrawal ${withdrawalId}`);

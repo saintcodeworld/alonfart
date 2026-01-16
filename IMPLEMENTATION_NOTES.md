@@ -2,7 +2,7 @@
 
 ## Summary of Changes
 
-This document outlines all changes made to transform the Coin Miner game into an authenticated, token-based system with withdrawal functionality.
+This document outlines all changes made to transform the Alon Fart game into an authenticated, token-based system with withdrawal functionality.
 
 ### 1. Authentication System (✅ Complete)
 

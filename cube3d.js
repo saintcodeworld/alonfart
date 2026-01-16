@@ -16,8 +16,6 @@ class Cube3D {
         this.currentCrackLevel = 0;
         this.mixer = null; // Animation mixer for Alon model
         this.clock = new THREE.Clock(); // Clock for animation timing
-        this.fartSound = null; // Fart sound effect
-        this.isFarting = false; // Track if currently farting
         
         this.init();
     }
@@ -73,8 +71,6 @@ class Cube3D {
         // Load alon model
         this.loadCube();
         
-        // Initialize fart sound effect
-        this.initFartSound();
         
         this.animate();
     }
@@ -179,96 +175,6 @@ class Cube3D {
         );
     }
     
-    initFartSound() {
-        console.log('[DEBUG] Initializing fart sound effect');
-        // Create a simple fart sound using Web Audio API
-        this.fartSound = this.createFartSound();
-    }
-    
-    createFartSound() {
-        // Create a more realistic fart sound using Web Audio API
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const playFart = () => {
-            if (this.isFarting) return; // Prevent overlapping farts
-            
-            this.isFarting = true;
-            console.log('[DEBUG] Playing realistic fart sound');
-            
-            // Create multiple oscillators for richer sound
-            const oscillator1 = audioContext.createOscillator();
-            const oscillator2 = audioContext.createOscillator();
-            const oscillator3 = audioContext.createOscillator();
-            
-            const gainNode = audioContext.createGain();
-            const filter = audioContext.createBiquadFilter();
-            const filter2 = audioContext.createBiquadFilter();
-            
-            // Connect oscillators to filters
-            oscillator1.connect(filter);
-            oscillator2.connect(filter);
-            oscillator3.connect(filter2);
-            
-            // Connect filters to gain
-            filter.connect(gainNode);
-            filter2.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            // Main fart sound - low frequency rumble
-            oscillator1.type = 'sawtooth';
-            oscillator1.frequency.setValueAtTime(60, audioContext.currentTime);
-            oscillator1.frequency.exponentialRampToValueAtTime(35, audioContext.currentTime + 0.4);
-            
-            // Secondary fart sound - mid range
-            oscillator2.type = 'triangle';
-            oscillator2.frequency.setValueAtTime(120, audioContext.currentTime);
-            oscillator2.frequency.exponentialRampToValueAtTime(80, audioContext.currentTime + 0.3);
-            
-            // High frequency component for texture
-            oscillator3.type = 'square';
-            oscillator3.frequency.setValueAtTime(200, audioContext.currentTime);
-            oscillator3.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + 0.2);
-            
-            // Main filter for bassy sound
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(300, audioContext.currentTime);
-            filter.Q.setValueAtTime(8, audioContext.currentTime);
-            filter.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.5);
-            
-            // Secondary filter for mid frequencies
-            filter2.type = 'bandpass';
-            filter2.frequency.setValueAtTime(400, audioContext.currentTime);
-            filter2.Q.setValueAtTime(3, audioContext.currentTime);
-            
-            // Complex envelope for realistic fart sound
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.02); // Quick attack
-            gainNode.gain.linearRampToValueAtTime(0.25, audioContext.currentTime + 0.1); // Slight dip
-            gainNode.gain.linearRampToValueAtTime(0.35, audioContext.currentTime + 0.25); // Rise again
-            gainNode.gain.exponentialRampToValueAtTime(0.05, audioContext.currentTime + 0.6); // Long fade out
-            
-            // Add some randomness for variation
-            const randomVariation = Math.random() * 0.1;
-            gainNode.gain.value += randomVariation;
-            
-            // Start all oscillators
-            oscillator1.start(audioContext.currentTime);
-            oscillator2.start(audioContext.currentTime);
-            oscillator3.start(audioContext.currentTime);
-            
-            // Stop oscillators at different times for more realistic decay
-            oscillator3.stop(audioContext.currentTime + 0.3);
-            oscillator2.stop(audioContext.currentTime + 0.5);
-            oscillator1.stop(audioContext.currentTime + 0.7);
-            
-            // Reset farting flag after sound finishes
-            setTimeout(() => {
-                this.isFarting = false;
-            }, 800);
-        };
-        
-        return { play: playFart };
-    }
     
     createAlonPlaceholder() {
         console.log('[DEBUG] Creating alon placeholder model');
@@ -460,120 +366,335 @@ class Cube3D {
     }
     
     fartAnimation() {
-        if (!this.cubeModel || this.isFarting) return;
-        
-        console.log('[DEBUG] Starting fart animation');
-        
-        // Play fart sound
-        if (this.fartSound) {
-            this.fartSound.play();
-        }
-        
-        // Create fart particles (greenish gas clouds)
-        this.createFartParticles();
-        
-        // Removed shake animation for smoother experience
-    }
-    
-    createFartParticles() {
         if (!this.cubeModel) return;
         
-        console.log('[DEBUG] Creating realistic fart particles');
+        console.log('[DEBUG] Starting enhanced fart animation');
         
-        // Create more particles for a more realistic fart effect
-        const particleCount = 12 + Math.floor(Math.random() * 6); // 12-17 particles
-        
-        for (let i = 0; i < particleCount; i++) {
-            setTimeout(() => {
-                this.createSingleFartParticle();
-            }, i * 80); // Faster stagger for more continuous flow
-        }
-    }
-    
-    createSingleFartParticle() {
-        // Create more realistic fart particle with varied colors and shapes
-        const particleSize = 0.2 + Math.random() * 0.3;
-        const particleGeometry = new THREE.SphereGeometry(particleSize, 6, 6);
-        
-        // Realistic fart colors - yellowish-green with brownish tints
-        const fartColors = [
-            0x88ff88, // Light green
-            0xaaff88, // Yellow-green
-            0xccff88, // Yellowish
-            0x88cc66, // Darker green
-            0x998844, // Brownish-green
-            0xaaaa66, // Muddy yellow
-        ];
-        
-        const randomColor = fartColors[Math.floor(Math.random() * fartColors.length)];
-        
-        const particleMaterial = new THREE.MeshBasicMaterial({
-            color: randomColor,
-            transparent: true,
-            opacity: 0.4 + Math.random() * 0.3, // Varied opacity
-            depthWrite: false
-        });
-        
-        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-        
-        // Get Alon's world position to start particles from correct location
+        // Get character position for all effects
         const alonWorldPosition = new THREE.Vector3();
         this.cubeModel.getWorldPosition(alonWorldPosition);
         
-        // More natural starting position - start from very bottom of character
-        particle.position.set(
-            alonWorldPosition.x - 0.5 + (Math.random() - 0.5) * 0.8, // Start slightly to the left and spread
-            alonWorldPosition.y - 2.2 + (Math.random() * 0.2), // Start from very bottom (even lower)
-            alonWorldPosition.z - 0.3 + (Math.random() - 0.5) * 0.4 // Slightly behind and spread
-        );
+        // Layer 1: Initial burst puff - fast expanding cloud
+        this.createInitialBurst(alonWorldPosition);
         
-        // Add particle to the scene, not the model, so it spreads freely without cube confinement
-        this.scene.add(particle);
+        // Layer 2: Main gas cloud particles with turbulence
+        this.createMainGasCloud(alonWorldPosition);
         
-        // More realistic animation with varied duration and movement
-        const duration = 2000 + Math.random() * 1000; // Varied duration (2-3 seconds)
-        const startTime = Date.now();
-        const initialScale = particle.scale.x;
-        const targetScale = initialScale * (5 + Math.random() * 4); // Varied expansion (5x-9x)
+        // Layer 3: Wispy smoke trails
+        this.createSmokeTrails(alonWorldPosition);
         
-        // Random movement parameters for natural drift - now going left and slightly more backward
-        const driftX = -0.03 - (Math.random() * 0.03); // Strong leftward drift
-        const driftY = 0.01 + Math.random() * 0.01; // Upward drift
-        const driftZ = -0.02 - Math.random() * 0.02; // Increased backward drift
-        const wobbleAmount = Math.random() * 0.02;
+        // Layer 4: Small detail particles for texture
+        this.createDetailParticles(alonWorldPosition);
+    }
+    
+    // Layer 1: Initial burst - big fast expanding puff
+    createInitialBurst(origin) {
+        console.log('[DEBUG] Creating initial burst');
         
-        const animateParticle = () => {
-            const elapsed = Date.now() - startTime;
-            const progress = elapsed / duration;
+        const burstCount = 3;
+        for (let i = 0; i < burstCount; i++) {
+            const size = 0.4 + Math.random() * 0.3;
+            const geometry = new THREE.SphereGeometry(size, 12, 12);
             
-            if (progress < 1) {
-                // Expand particle with easing
-                const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
-                const currentScale = initialScale + (targetScale - initialScale) * easeProgress;
-                particle.scale.setScalar(currentScale);
+            // Brownish-yellow burst color
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x8B7355,
+                transparent: true,
+                opacity: 0.6,
+                depthWrite: false
+            });
+            
+            const burst = new THREE.Mesh(geometry, material);
+            burst.position.set(
+                origin.x - 0.3 + (Math.random() - 0.5) * 0.4,
+                origin.y - 2.5 + Math.random() * 0.3,
+                origin.z - 0.5 - Math.random() * 0.3
+            );
+            
+            this.scene.add(burst);
+            
+            // Fast expansion animation
+            const startTime = Date.now();
+            const duration = 400 + Math.random() * 200;
+            
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
                 
-                // Fade out more gradually
-                particle.material.opacity = (0.7 * (1 - progress * progress)) + Math.random() * 0.1;
-                
-                // Natural drift with wobble - now in world space
-                particle.position.y += driftY;
-                particle.position.x += driftX + Math.sin(elapsed * 0.003) * wobbleAmount;
-                particle.position.z += driftZ;
-                
-                // Slight rotation for more natural movement
-                particle.rotation.x += 0.01;
-                particle.rotation.y += 0.015;
-                
-                requestAnimationFrame(animateParticle);
-            } else {
-                // Remove particle from scene
-                this.scene.remove(particle);
-                particle.geometry.dispose();
-                particle.material.dispose();
-            }
-        };
+                if (progress < 1) {
+                    // Rapid expansion with ease-out
+                    const scale = 1 + (progress * progress) * 8;
+                    burst.scale.setScalar(scale);
+                    
+                    // Quick fade
+                    burst.material.opacity = 0.6 * (1 - progress);
+                    
+                    // Slight upward and backward movement
+                    burst.position.y += 0.02;
+                    burst.position.z -= 0.03;
+                    
+                    requestAnimationFrame(animate);
+                } else {
+                    this.scene.remove(burst);
+                    burst.geometry.dispose();
+                    burst.material.dispose();
+                }
+            };
+            
+            setTimeout(() => animate(), i * 50);
+        }
+    }
+    
+    // Layer 2: Main gas cloud with turbulent motion
+    createMainGasCloud(origin) {
+        console.log('[DEBUG] Creating main gas cloud');
         
-        animateParticle();
+        const cloudCount = 15 + Math.floor(Math.random() * 8);
+        
+        // Realistic gas colors - more muted and organic
+        const gasColors = [
+            0x6B8E23, // Olive drab
+            0x808000, // Olive
+            0x9ACD32, // Yellow green
+            0x556B2F, // Dark olive green
+            0x8B8B00, // Dark yellow
+            0x6B6B47, // Murky green-brown
+            0x7D7D5C, // Khaki-ish
+            0x8B7765, // Dusty brown
+        ];
+        
+        for (let i = 0; i < cloudCount; i++) {
+            setTimeout(() => {
+                const size = 0.15 + Math.random() * 0.25;
+                // Use icosahedron for more organic cloud shape
+                const geometry = new THREE.IcosahedronGeometry(size, 1);
+                
+                const color = gasColors[Math.floor(Math.random() * gasColors.length)];
+                const material = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.35 + Math.random() * 0.25,
+                    depthWrite: false
+                });
+                
+                const cloud = new THREE.Mesh(geometry, material);
+                
+                // Spawn from butt area with spread
+                const spawnAngle = Math.random() * Math.PI * 0.5 - Math.PI * 0.25;
+                cloud.position.set(
+                    origin.x - 0.2 + Math.sin(spawnAngle) * 0.3,
+                    origin.y - 2.3 - Math.random() * 0.4,
+                    origin.z - 0.4 + Math.cos(spawnAngle) * 0.2
+                );
+                
+                this.scene.add(cloud);
+                
+                // Turbulent animation parameters
+                const duration = 2500 + Math.random() * 1500;
+                const startTime = Date.now();
+                const targetScale = 4 + Math.random() * 5;
+                
+                // Perlin-like noise parameters for turbulence
+                const turbulenceX = Math.random() * 0.04;
+                const turbulenceY = Math.random() * 0.02;
+                const turbulenceZ = Math.random() * 0.03;
+                const phaseX = Math.random() * Math.PI * 2;
+                const phaseY = Math.random() * Math.PI * 2;
+                const phaseZ = Math.random() * Math.PI * 2;
+                const freqX = 0.002 + Math.random() * 0.002;
+                const freqY = 0.003 + Math.random() * 0.002;
+                const freqZ = 0.002 + Math.random() * 0.001;
+                
+                // Base drift direction
+                const baseDriftX = -0.015 - Math.random() * 0.02;
+                const baseDriftY = 0.008 + Math.random() * 0.012;
+                const baseDriftZ = -0.025 - Math.random() * 0.02;
+                
+                const animate = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = elapsed / duration;
+                    
+                    if (progress < 1) {
+                        // Organic scale with pulsing
+                        const baseScale = 1 + (targetScale - 1) * (1 - Math.pow(1 - progress, 2));
+                        const pulse = 1 + Math.sin(elapsed * 0.008) * 0.1;
+                        cloud.scale.setScalar(baseScale * pulse);
+                        
+                        // Turbulent movement using sine waves for pseudo-noise
+                        const turbX = Math.sin(elapsed * freqX + phaseX) * turbulenceX;
+                        const turbY = Math.sin(elapsed * freqY + phaseY) * turbulenceY;
+                        const turbZ = Math.sin(elapsed * freqZ + phaseZ) * turbulenceZ;
+                        
+                        cloud.position.x += baseDriftX + turbX;
+                        cloud.position.y += baseDriftY + turbY;
+                        cloud.position.z += baseDriftZ + turbZ;
+                        
+                        // Slow rotation for organic feel
+                        cloud.rotation.x += 0.005 + Math.random() * 0.005;
+                        cloud.rotation.y += 0.008 + Math.random() * 0.005;
+                        cloud.rotation.z += 0.003;
+                        
+                        // Gradual fade with flicker
+                        const baseFade = 1 - Math.pow(progress, 1.5);
+                        const flicker = 0.95 + Math.random() * 0.1;
+                        cloud.material.opacity = (0.5 * baseFade * flicker);
+                        
+                        requestAnimationFrame(animate);
+                    } else {
+                        this.scene.remove(cloud);
+                        cloud.geometry.dispose();
+                        cloud.material.dispose();
+                    }
+                };
+                
+                animate();
+            }, i * 60 + Math.random() * 40);
+        }
+    }
+    
+    // Layer 3: Wispy smoke trails
+    createSmokeTrails(origin) {
+        console.log('[DEBUG] Creating smoke trails');
+        
+        const trailCount = 5 + Math.floor(Math.random() * 3);
+        
+        for (let t = 0; t < trailCount; t++) {
+            setTimeout(() => {
+                // Each trail is a series of connected particles
+                const segments = 8 + Math.floor(Math.random() * 5);
+                const trailAngle = (Math.random() - 0.5) * Math.PI * 0.4;
+                
+                for (let s = 0; s < segments; s++) {
+                    setTimeout(() => {
+                        const size = 0.08 + Math.random() * 0.1;
+                        const geometry = new THREE.SphereGeometry(size, 6, 6);
+                        
+                        // Lighter wispy color
+                        const material = new THREE.MeshBasicMaterial({
+                            color: 0xA9A9A9,
+                            transparent: true,
+                            opacity: 0.2 + Math.random() * 0.15,
+                            depthWrite: false
+                        });
+                        
+                        const wisp = new THREE.Mesh(geometry, material);
+                        
+                        // Position along trail path
+                        const trailProgress = s / segments;
+                        wisp.position.set(
+                            origin.x - 0.2 + Math.sin(trailAngle) * trailProgress * 2,
+                            origin.y - 2.4 + trailProgress * 0.5,
+                            origin.z - 0.5 - trailProgress * 1.5
+                        );
+                        
+                        this.scene.add(wisp);
+                        
+                        const duration = 1800 + Math.random() * 800;
+                        const startTime = Date.now();
+                        
+                        const animate = () => {
+                            const elapsed = Date.now() - startTime;
+                            const progress = elapsed / duration;
+                            
+                            if (progress < 1) {
+                                // Gentle expansion
+                                wisp.scale.setScalar(1 + progress * 3);
+                                
+                                // Wavy drift
+                                wisp.position.x += Math.sin(elapsed * 0.004 + s) * 0.01;
+                                wisp.position.y += 0.012;
+                                wisp.position.z -= 0.015;
+                                
+                                // Fade out
+                                wisp.material.opacity = 0.25 * (1 - progress);
+                                
+                                requestAnimationFrame(animate);
+                            } else {
+                                this.scene.remove(wisp);
+                                wisp.geometry.dispose();
+                                wisp.material.dispose();
+                            }
+                        };
+                        
+                        animate();
+                    }, s * 35);
+                }
+            }, t * 100);
+        }
+    }
+    
+    // Layer 4: Small detail particles for texture
+    createDetailParticles(origin) {
+        console.log('[DEBUG] Creating detail particles');
+        
+        const detailCount = 25 + Math.floor(Math.random() * 15);
+        
+        for (let i = 0; i < detailCount; i++) {
+            setTimeout(() => {
+                const size = 0.03 + Math.random() * 0.06;
+                const geometry = new THREE.SphereGeometry(size, 4, 4);
+                
+                // Varied tiny particle colors
+                const detailColors = [0x7CFC00, 0xADFF2F, 0x9ACD32, 0x6B8E23, 0x8B8B00];
+                const color = detailColors[Math.floor(Math.random() * detailColors.length)];
+                
+                const material = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.4 + Math.random() * 0.3,
+                    depthWrite: false
+                });
+                
+                const detail = new THREE.Mesh(geometry, material);
+                
+                // Random spawn in cloud area
+                detail.position.set(
+                    origin.x - 0.3 + (Math.random() - 0.5) * 1.2,
+                    origin.y - 2.5 + (Math.random() - 0.3) * 0.8,
+                    origin.z - 0.6 + (Math.random() - 0.5) * 0.8
+                );
+                
+                this.scene.add(detail);
+                
+                const duration = 1200 + Math.random() * 1000;
+                const startTime = Date.now();
+                
+                // Chaotic movement parameters
+                const velocityX = (Math.random() - 0.5) * 0.04;
+                const velocityY = 0.01 + Math.random() * 0.02;
+                const velocityZ = -0.02 - Math.random() * 0.03;
+                const spin = (Math.random() - 0.5) * 0.1;
+                
+                const animate = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = elapsed / duration;
+                    
+                    if (progress < 1) {
+                        // Slight growth
+                        detail.scale.setScalar(1 + progress * 2);
+                        
+                        // Chaotic movement
+                        detail.position.x += velocityX + Math.sin(elapsed * 0.01) * 0.005;
+                        detail.position.y += velocityY;
+                        detail.position.z += velocityZ;
+                        
+                        detail.rotation.x += spin;
+                        detail.rotation.z += spin * 0.7;
+                        
+                        // Quick fade
+                        detail.material.opacity = 0.5 * (1 - progress * progress);
+                        
+                        requestAnimationFrame(animate);
+                    } else {
+                        this.scene.remove(detail);
+                        detail.geometry.dispose();
+                        detail.material.dispose();
+                    }
+                };
+                
+                animate();
+            }, Math.random() * 300);
+        }
     }
     
     breakAnimation(callback) {
@@ -685,10 +806,6 @@ class Cube3D {
             this.mixer = null;
         }
         
-        // Clean up fart sound
-        if (this.fartSound) {
-            this.fartSound = null;
-        }
         
         this.scene = null;
         this.camera = null;
