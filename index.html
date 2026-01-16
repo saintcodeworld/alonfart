@@ -24,6 +24,25 @@
     <script src="https://cdn.jsdelivr.net/npm/@solana/spl-token@0.3.9/lib/index.iife.min.js"></script>
 </head>
 <body>
+    <!-- Disable console logs for production - prevents players from seeing debug info -->
+    <script>
+        (function() {
+            // Store original console methods for potential debugging access
+            window.__console = {
+                log: console.log,
+                warn: console.warn,
+                error: console.error,
+                info: console.info,
+                debug: console.debug
+            };
+            // Override console methods with no-op functions
+            console.log = function() {};
+            console.warn = function() {};
+            console.error = function() {};
+            console.info = function() {};
+            console.debug = function() {};
+        })();
+    </script>
     <div class="blockchain-bg"></div>
     
     <!-- DEBUG: Auth modal - seed phrase based authentication -->
@@ -79,7 +98,11 @@
     
     <div class="game-container hidden" id="gameContainer">
         <!-- DEBUG: Fake Live Chat - local simulation for engagement -->
-        <div id="liveChat" class="live-chat">
+        <button id="chatToggleBtn" class="pixel-btn chat-toggle-btn">
+            <span class="pixel-icon">[C]</span>
+            <span>CHAT</span>
+        </button>
+        <div id="liveChat" class="live-chat hidden">
             <div class="chat-header">
                 <span class="chat-status-dot"></span>
                 <span>LIVE CHAT</span>
@@ -125,11 +148,18 @@
                             <span>ADDRESS:</span>
                             <span id="statWalletAddress" class="wallet-addr-short">---</span>
                         </div>
-                        <button id="showPrivateKeyBtn" class="pixel-btn secondary-btn" style="font-size: 6px; margin-top: 8px;">SHOW PRIVATE KEY</button>
+                        <div style="display: flex; gap: 4px; margin-top: 8px;">
+                            <button id="showPrivateKeyBtn" class="pixel-btn secondary-btn" style="font-size: 6px;">SHOW PRIVATE KEY</button>
+                        </div>
                         <div id="privateKeySection" class="hidden" style="margin-top: 8px;">
                             <p style="font-size: 6px; color: #ff6b6b;">⚠️ Never share this!</p>
                             <div id="statPrivateKey" class="private-key-display"></div>
                             <button id="copyPrivateKeyBtn" class="pixel-btn secondary-btn" style="font-size: 6px; margin-top: 4px;">COPY</button>
+                        </div>
+                        <div id="seedPhraseSection" class="hidden" style="margin-top: 8px;">
+                            <p style="font-size: 6px; color: #ff6b6b;">⚠️ Never share this!</p>
+                            <div id="statSeedPhrase" class="seed-phrase-display"></div>
+                            <button id="copySeedPhraseBtn" class="pixel-btn secondary-btn" style="font-size: 6px; margin-top: 4px;">COPY</button>
                         </div>
                     </div>
                     <div class="claim-history">
@@ -165,11 +195,6 @@
         </div>
 
         <div class="main-game">
-            <button id="shopBtn" class="pixel-btn shop-toggle-btn">
-                <span class="pixel-icon">[S]</span>
-                <span>SHOP</span>
-            </button>
-            
             <div class="cube-container" id="cubeContainer">
             </div>
         </div>
@@ -179,7 +204,7 @@
             <div class="current-tool">
                 <p>CURRENT MINER:</p>
                 <h3 id="currentToolName">Genesis Miner</h3>
-                <p class="tool-stats">POWER: <span id="currentHits">1</span> | YIELD: <span id="currentCoins">1</span> COINS</p>
+                <p class="tool-stats">POWER: <span id="currentHits">1</span> | YIELD: <span id="currentCoins">1</span> TOKENS</p>
             </div>
             
             <div class="blockchain-info">
@@ -189,7 +214,7 @@
                 </div>
                 <div class="info-line">
                     <span>[#] TOTAL MINED:</span>
-                    <span id="totalMined">0 COINS</span>
+                    <span id="totalMined">0 TOKENS</span>
                 </div>
             </div>
             
@@ -197,7 +222,7 @@
                 <div class="tool-item locked" data-tool="0">
                     <div class="tool-info">
                         <h4>THE GUST OF ALON</h4>
-                        <p class="tool-description">1 CLICK → 3,500 COINS</p>
+                        <p class="tool-description">1 CLICK → 2,000 TOKENS</p>
                         <p class="tool-cost">FREE</p>
                     </div>
                     <button class="buy-btn" disabled>EQUIPPED</button>
@@ -206,8 +231,8 @@
                 <div class="tool-item locked" data-tool="1">
                     <div class="tool-info">
                         <h4>THE AFTERSHOCK</h4>
-                        <p class="tool-description">1 CLICK → 6,500 COINS</p>
-                        <p class="tool-cost">350,000 COINS</p>
+                        <p class="tool-description">1 CLICK → 3,500 TOKENS</p>
+                        <p class="tool-cost">650,000 TOKENS</p>
                     </div>
                     <button class="buy-btn">BUY</button>
                 </div>
@@ -215,8 +240,8 @@
                 <div class="tool-item locked" data-tool="2">
                     <div class="tool-info">
                         <h4>THE FULL SYSTEM FLUSH</h4>
-                        <p class="tool-description">1 CLICK → 14,500 COINS</p>
-                        <p class="tool-cost">650,000 COINS</p>
+                        <p class="tool-description">1 CLICK → 8,000 TOKENS</p>
+                        <p class="tool-cost">1,350,000 TOKENS</p>
                     </div>
                     <button class="buy-btn">BUY</button>
                 </div>

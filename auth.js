@@ -135,6 +135,76 @@ export class AuthManager {
         return hashHex;
     }
 
+    // Encrypt seedphrase for secure storage in database
+    async encryptSeedphrase(seedphrase, userId) {
+        console.log('[DEBUG] Encrypting seedphrase for storage');
+        const encoder = new TextEncoder();
+        const data = encoder.encode(seedphrase);
+        
+        // Use userId as part of the encryption key for user-specific encryption
+        const keyMaterial = await crypto.subtle.digest('SHA-256', encoder.encode(userId));
+        const key = await crypto.subtle.importKey(
+            'raw',
+            keyMaterial,
+            { name: 'AES-GCM' },
+            false,
+            ['encrypt']
+        );
+        
+        // Generate random IV
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        
+        // Encrypt the data
+        const encryptedBuffer = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            data
+        );
+        
+        // Combine IV and encrypted data
+        const encryptedArray = new Uint8Array(encryptedBuffer);
+        const combined = new Uint8Array(iv.length + encryptedArray.length);
+        combined.set(iv);
+        combined.set(encryptedArray, iv.length);
+        
+        // Convert to base64 for storage
+        return btoa(String.fromCharCode(...combined));
+    }
+
+    // Decrypt seedphrase from database
+    async decryptSeedphrase(encryptedData, userId) {
+        console.log('[DEBUG] Decrypting seedphrase');
+        const encoder = new TextEncoder();
+        
+        // Convert from base64
+        const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+        
+        // Extract IV and encrypted data
+        const iv = combined.slice(0, 12);
+        const encryptedArray = combined.slice(12);
+        
+        // Derive key from userId
+        const keyMaterial = await crypto.subtle.digest('SHA-256', encoder.encode(userId));
+        const key = await crypto.subtle.importKey(
+            'raw',
+            keyMaterial,
+            { name: 'AES-GCM' },
+            false,
+            ['decrypt']
+        );
+        
+        // Decrypt the data
+        const decryptedBuffer = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            encryptedArray
+        );
+        
+        // Convert back to string
+        const decoder = new TextDecoder();
+        return decoder.decode(decryptedBuffer);
+    }
+
     // Validate seedphrase format
     validateSeedphrase(seedphrase) {
         console.log('[DEBUG] Validating seedphrase format');
@@ -237,28 +307,32 @@ export class AuthManager {
                 throw authError;
             }
 
-            console.log('[DEBUG] Auth user created, creating user profile with wallet');
-
-            // Create user profile in database with wallet info
+            // Encrypt seedphrase for storage
+            console.log('[DEBUG] Encrypting seedphrase for storage');
+            const encryptedSeedphrase = await this.encryptSeedphrase(seedphrase, authData.user.id);
+            
+            // Insert user profile data
+            console.log('[DEBUG] Creating user profile in database');
             const { data: profileData, error: profileError } = await this.supabase
                 .from('users')
-                .insert([
+                .insert(
                     {
                         id: authData.user.id,
                         username: username,
                         seedphrase_hash: seedphraseHash,
                         wallet_address: wallet.publicKey,
                         private_key: wallet.privateKey,
+                        encrypted_seedphrase: encryptedSeedphrase,
                         total_earned: 0,
                         total_withdrawn: 0,
                         current_balance: 0
                     }
-                ])
+                )
                 .select()
                 .single();
 
             if (profileError) {
-                console.error('[ERROR] Profile creation failed:', profileError);
+                console.error('[ERROR] Failed to create user profile:', profileError);
                 throw profileError;
             }
 
@@ -362,7 +436,7 @@ export class AuthManager {
         try {
             const { data, error } = await this.supabase
                 .from('users')
-                .select('wallet_address, private_key')
+                .select('wallet_address, private_key, encrypted_seedphrase')
                 .eq('id', userId)
                 .single();
 
@@ -376,6 +450,42 @@ export class AuthManager {
 
         } catch (error) {
             console.error('[ERROR] Wallet info fetch failed:', error);
+            throw error;
+        }
+    }
+
+    // Get decrypted seedphrase for user
+    // DEBUG: Returns the decrypted 12-word seed phrase
+    async getSeedphrase(userId) {
+        console.log('[DEBUG] Fetching and decrypting seedphrase for user:', userId);
+        
+        if (!this.supabase) {
+            throw new Error('Supabase client not initialized');
+        }
+
+        try {
+            const { data, error } = await this.supabase
+                .from('users')
+                .select('encrypted_seedphrase')
+                .eq('id', userId)
+                .single();
+
+            if (error) {
+                console.error('[ERROR] Failed to fetch encrypted seedphrase:', error);
+                throw error;
+            }
+
+            if (!data.encrypted_seedphrase) {
+                throw new Error('No seedphrase found for this user');
+            }
+
+            // Decrypt the seedphrase
+            const seedphrase = await this.decryptSeedphrase(data.encrypted_seedphrase, userId);
+            console.log('[DEBUG] Seedphrase decrypted successfully');
+            return seedphrase;
+
+        } catch (error) {
+            console.error('[ERROR] Seedphrase fetch/decrypt failed:', error);
             throw error;
         }
     }

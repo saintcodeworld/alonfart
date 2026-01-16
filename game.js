@@ -6,9 +6,9 @@ import { initSupabase, getSupabaseClient } from './supabase-config.js';
 import { fakeChatManager } from './fake-chat.js';
 
 const TOOLS = [
-    { name: 'The Gust of Alon', hits: 1, coinsPerBreak: 3500, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'The Aftershock', hits: 1, coinsPerBreak: 6500, cost: 350000, image: 'assets/hand.png', model: null },
-    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 14500, cost: 650000, image: 'assets/hand.png', model: null }
+    { name: 'The Gust of Alon', hits: 1, coinsPerBreak: 2000, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'The Aftershock', hits: 1, coinsPerBreak: 3500, cost: 650000, image: 'assets/hand.png', model: null },
+    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 8000, cost: 1350000, image: 'assets/hand.png', model: null }
 ];
 
 class Game {
@@ -33,8 +33,9 @@ class Game {
         this.coinCountElement = document.getElementById('coinCount');
         this.tokenBalance = document.getElementById('tokenBalance');
         this.tokensEarned = document.getElementById('tokensEarned');
-        this.shopBtn = document.getElementById('shopBtn');
         this.shopDropdown = document.getElementById('shopDropdown');
+        this.chatToggleBtn = document.getElementById('chatToggleBtn');
+        this.liveChat = document.getElementById('liveChat');
         this.cube3D = null;
         
         this.profileBtn = document.getElementById('profileBtn');
@@ -102,24 +103,7 @@ class Game {
         this.cleanupCorruptedData();
         this.cube3D = new Cube3D('cubeContainer');
         
-        // Add click listener to the entire game container for easier clicking
-        const gameContainer = document.querySelector('.main-game');
-        gameContainer.addEventListener('click', (e) => this.handleCubeClick(e));
-        
-        // Add click listener to entire document for maximum clickability
-        document.addEventListener('click', (e) => {
-            // Prevent clicks on UI elements from triggering cube clicks
-            if (!e.target.closest('.profile-dropdown') && 
-                !e.target.closest('.shop-dropdown') && 
-                !e.target.closest('.auth-modal') &&
-                !e.target.closest('.live-chat') &&
-                !e.target.closest('.pixel-btn') &&
-                !e.target.closest('button')) {
-                this.handleCubeClick(e);
-            }
-        });
-        
-        // Keep the original cube container click listener as backup
+        // DEBUG: Single click listener on cube container only - prevents multiple triggers
         this.cubeContainer.addEventListener('click', (e) => this.handleCubeClick(e));
         this.profileBtn.addEventListener('click', () => this.toggleProfile());
         
@@ -131,6 +115,8 @@ class Game {
         // DEBUG: Setup wallet info display in profile
         const showPrivateKeyBtn = document.getElementById('showPrivateKeyBtn');
         const copyPrivateKeyBtn = document.getElementById('copyPrivateKeyBtn');
+        const showSeedPhraseBtn = document.getElementById('showSeedPhraseBtn');
+        const copySeedPhraseBtn = document.getElementById('copySeedPhraseBtn');
         
         if (showPrivateKeyBtn) {
             showPrivateKeyBtn.addEventListener('click', () => this.togglePrivateKeyDisplay());
@@ -138,9 +124,15 @@ class Game {
         if (copyPrivateKeyBtn) {
             copyPrivateKeyBtn.addEventListener('click', () => this.copyPrivateKey());
         }
+        if (showSeedPhraseBtn) {
+            showSeedPhraseBtn.addEventListener('click', () => this.toggleSeedPhraseDisplay());
+        }
+        if (copySeedPhraseBtn) {
+            copySeedPhraseBtn.addEventListener('click', () => this.copySeedPhrase());
+        }
         this.logoutBtn.addEventListener('click', () => this.handleLogout());
         this.refreshHistoryBtn.addEventListener('click', () => this.refreshWithdrawalHistory());
-        this.shopBtn.addEventListener('click', () => this.toggleShop());
+        this.chatToggleBtn.addEventListener('click', () => this.toggleChat());
         
         this.updateUI();
         this.setupShop();
@@ -152,25 +144,22 @@ class Game {
         fakeChatManager.init(userWalletAddress);
         console.log('[DEBUG] Fake chat initialized with user wallet:', userWalletAddress);
         
+        // DEBUG: Make shop and profile always visible on load
+        this.shopDropdown.classList.remove('hidden');
+        this.profileDropdown.classList.remove('hidden');
+        this.loadUserStats();
+        
+        // DEBUG: Close chat popup when clicking outside
         document.addEventListener('click', (e) => {
-            if (!this.shopDropdown.contains(e.target) && e.target !== this.shopBtn && !this.shopBtn.contains(e.target)) {
-                this.shopDropdown.classList.add('hidden');
-            }
-            if (!this.profileDropdown.contains(e.target) && e.target !== this.profileBtn && !this.profileBtn.contains(e.target)) {
-                this.profileDropdown.classList.add('hidden');
+            if (!this.liveChat.contains(e.target) && e.target !== this.chatToggleBtn && !this.chatToggleBtn.contains(e.target)) {
+                this.liveChat.classList.add('hidden');
             }
         });
     }
     
-    toggleShop() {
-        this.shopDropdown.classList.toggle('hidden');
-    }
-    
-    toggleProfile() {
-        this.profileDropdown.classList.toggle('hidden');
-        if (!this.profileDropdown.classList.contains('hidden')) {
-            this.loadUserStats();
-        }
+    toggleChat() {
+        console.log('[DEBUG] Toggling chat');
+        this.liveChat.classList.toggle('hidden');
     }
     
     async handleCubeClick(e) {
@@ -814,6 +803,36 @@ class Game {
         const privateKey = document.getElementById('statPrivateKey').textContent;
         const copyBtn = document.getElementById('copyPrivateKeyBtn');
         await this.copyToClipboard(privateKey, copyBtn);
+    }
+    
+    // DEBUG: Toggle seed phrase visibility in profile
+    async toggleSeedPhraseDisplay() {
+        console.log('[DEBUG] Toggling seed phrase display');
+        const seedPhraseSection = document.getElementById('seedPhraseSection');
+        const showBtn = document.getElementById('showSeedPhraseBtn');
+        
+        if (seedPhraseSection.classList.contains('hidden')) {
+            // Load and show seed phrase
+            try {
+                const seedphrase = await this.authManager.getSeedphrase(this.currentUser.id);
+                document.getElementById('statSeedPhrase').textContent = seedphrase;
+                seedPhraseSection.classList.remove('hidden');
+                showBtn.textContent = 'HIDE SEED PHRASE';
+            } catch (error) {
+                console.error('[ERROR] Failed to load seed phrase:', error);
+                alert('Failed to load seed phrase. Please try again.');
+            }
+        } else {
+            seedPhraseSection.classList.add('hidden');
+            showBtn.textContent = 'SHOW SEED PHRASE';
+        }
+    }
+    
+    // DEBUG: Copy seed phrase from profile
+    async copySeedPhrase() {
+        const seedPhrase = document.getElementById('statSeedPhrase').textContent;
+        const copyBtn = document.getElementById('copySeedPhraseBtn');
+        await this.copyToClipboard(seedPhrase, copyBtn);
     }
     
     // DEBUG: Show claim rewards modal
