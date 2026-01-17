@@ -53,6 +53,13 @@ const debug = (message, data = '') => {
     console.log(`[DEBUG] ${message}`, data);
 };
 
+// Log environment variables for debugging (without exposing secrets)
+console.log('[DEBUG] Environment Variables Check:');
+requiredEnvVars.forEach(varName => {
+    const value = process.env[varName];
+    console.log(`[DEBUG] ${varName}:`, value ? '✅ SET' : '❌ MISSING');
+});
+
 // Initialize Supabase client
 const supabase = createClient(
     process.env.SUPABASE_URL,
