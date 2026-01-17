@@ -96,14 +96,17 @@ class Game {
         this.authModal.classList.add('hidden');
         this.gameContainer.classList.remove('hidden');
         
-        // DEBUG: Only initialize 3D model if not already preloaded during signup
-        if (!this.cube3D) {
-            console.log('[DEBUG] Initializing 3D model (not preloaded)');
-            this.cleanupCorruptedData();
-            this.cube3D = new Cube3D('cubeContainer');
-        } else {
-            console.log('[DEBUG] 3D model already preloaded, skipping initialization');
+        // DEBUG: Always create fresh 3D model after container is visible
+        // Clean up any existing broken instance first
+        if (this.cube3D) {
+            console.log('[DEBUG] Cleaning up existing 3D model instance');
+            this.cube3D.cleanup();
+            this.cube3D = null;
         }
+        
+        this.cleanupCorruptedData();
+        console.log('[DEBUG] Initializing 3D model (container now visible)');
+        this.cube3D = new Cube3D('cubeContainer');
         
         // DEBUG: Single click listener on cube container only to prevent multiple triggers
         this.cubeContainer.addEventListener('click', (e) => {
@@ -621,11 +624,8 @@ class Game {
             this.userSeedphrase = result.seedphrase;
             this.userWallet = result.wallet;
             
-            // DEBUG: Preload 3D model in background while user saves seedphrase
-            // This ensures the model renders quickly after registration confirmation
-            console.log('[DEBUG] Preloading 3D model in background');
-            this.cleanupCorruptedData();
-            this.cube3D = new Cube3D('cubeContainer');
+            // NOTE: Cannot preload 3D model here - container is hidden and has 0 dimensions
+            // Model will be initialized when showGame() is called after container becomes visible
             
             // Display seed phrase and wallet info
             this.displaySeedphraseAndWallet(result.seedphrase, result.wallet);
