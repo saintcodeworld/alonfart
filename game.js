@@ -42,7 +42,7 @@ class Game {
         this.refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
         
         // DEBUG: Load fart sound effect
-        this.fartSound = new Audio('soundscrate-fart.mp3');
+        this.fartSound = new Audio('assets/sounds/soundscrate-fart.mp3');
         this.fartSound.volume = 0.5;
         console.log('[DEBUG] Fart sound loaded');
         
