@@ -12,6 +12,34 @@ const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, crea
 const TOKEN_2022_PROGRAM = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
 const { createClient } = require('@supabase/supabase-js');
 
+// Validate required environment variables
+const requiredEnvVars = [
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SOLANA_RPC_URL',
+    'SOLANA_NETWORK',
+    'TREASURY_PRIVATE_KEY',
+    'TOKEN_MINT_ADDRESS'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+    console.error('=========================================');
+    console.error('❌ MISSING REQUIRED ENVIRONMENT VARIABLES');
+    console.error('=========================================');
+    console.error('The following environment variables are required but not set:');
+    missingEnvVars.forEach(varName => {
+        console.error(`  - ${varName}`);
+    });
+    console.error('\nPlease set these variables in:');
+    console.error('  - Railway Dashboard → Variables tab (for production)');
+    console.error('  - .env file (for local development)');
+    console.error('\nSee RAILWAY_ENVIRONMENT_SETUP.md for detailed instructions.');
+    console.error('=========================================');
+    process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
