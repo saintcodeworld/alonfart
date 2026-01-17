@@ -218,9 +218,15 @@ class Game {
             const stats = await this.authManager.getUserStats(this.currentUser.id);
             console.log('[DEBUG] User stats loaded:', stats);
             
-            this.profileUsername.textContent = stats.username.toUpperCase();
-            document.getElementById('statUsername').textContent = stats.username;
-            document.getElementById('statWithdrawn').textContent = stats.total_withdrawn.toLocaleString();
+            // DEBUG: Handle null/undefined values with proper defaults
+            const username = stats?.username || 'Unknown';
+            const totalWithdrawn = stats?.total_withdrawn ?? 0;
+            const dbBalance = stats?.current_balance ?? 0;
+            const dbTotalEarned = stats?.total_earned ?? 0;
+            
+            // DEBUG: Update profile stats display
+            document.getElementById('statUsername').textContent = username;
+            document.getElementById('statWithdrawn').textContent = totalWithdrawn.toLocaleString();
             
             // DEBUG: Use localStorage as source of truth for balance
             // This prevents Supabase from overwriting local progress
@@ -228,8 +234,8 @@ class Game {
             const localTotalMined = this.totalMined;
             
             // Use the higher value between local and Supabase (in case Supabase has valid data)
-            const displayBalance = Math.max(localBalance, stats.current_balance || 0);
-            const displayTotalEarned = Math.max(localTotalMined, stats.total_earned || 0);
+            const displayBalance = Math.max(localBalance, dbBalance);
+            const displayTotalEarned = Math.max(localTotalMined, dbTotalEarned);
             
             document.getElementById('statBalance').textContent = displayBalance.toLocaleString();
             document.getElementById('statTotalEarned').textContent = displayTotalEarned.toLocaleString();
@@ -239,9 +245,9 @@ class Game {
             this.coinCountElement.textContent = displayBalance.toLocaleString();
             
             // DEBUG: Sync local balance to Supabase if local is higher
-            if (localBalance > (stats.current_balance || 0)) {
+            if (localBalance > dbBalance) {
                 console.log('[DEBUG] Local balance higher than Supabase, syncing...');
-                const diff = localBalance - (stats.current_balance || 0);
+                const diff = localBalance - dbBalance;
                 try {
                     await this.authManager.updateTokenBalance(this.currentUser.id, diff);
                     console.log('[DEBUG] Synced local balance to Supabase');
