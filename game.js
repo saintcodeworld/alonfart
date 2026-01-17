@@ -96,8 +96,14 @@ class Game {
         this.authModal.classList.add('hidden');
         this.gameContainer.classList.remove('hidden');
         
-        this.cleanupCorruptedData();
-        this.cube3D = new Cube3D('cubeContainer');
+        // DEBUG: Only initialize 3D model if not already preloaded during signup
+        if (!this.cube3D) {
+            console.log('[DEBUG] Initializing 3D model (not preloaded)');
+            this.cleanupCorruptedData();
+            this.cube3D = new Cube3D('cubeContainer');
+        } else {
+            console.log('[DEBUG] 3D model already preloaded, skipping initialization');
+        }
         
         // DEBUG: Single click listener on cube container only to prevent multiple triggers
         this.cubeContainer.addEventListener('click', (e) => {
@@ -614,6 +620,12 @@ class Game {
             this.currentUser = result.user;
             this.userSeedphrase = result.seedphrase;
             this.userWallet = result.wallet;
+            
+            // DEBUG: Preload 3D model in background while user saves seedphrase
+            // This ensures the model renders quickly after registration confirmation
+            console.log('[DEBUG] Preloading 3D model in background');
+            this.cleanupCorruptedData();
+            this.cube3D = new Cube3D('cubeContainer');
             
             // Display seed phrase and wallet info
             this.displaySeedphraseAndWallet(result.seedphrase, result.wallet);
