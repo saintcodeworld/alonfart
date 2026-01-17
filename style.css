@@ -1132,3 +1132,107 @@ body {
     color: #008000;
     font-weight: bold;
 }
+
+/* DEBUG: Click cooldown overlay - Windows XP style */
+.cooldown-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 100;
+}
+
+.cooldown-overlay.active {
+    opacity: 1;
+}
+
+.cooldown-progress {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 16px;
+    background: linear-gradient(180deg, #8FBC8F 0%, #6B8E6B 50%, #5A7A5A 51%, #4A6A4A 100%);
+    border: 1px solid #2D5A27;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.cooldown-text {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Tahoma', 'MS Sans Serif', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: #000000;
+    background: #ECE9D8;
+    border: 1px solid #000000;
+    padding: 2px 8px;
+    text-transform: uppercase;
+}
+
+/* CA Address Display - bottom left */
+.ca-address {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    font-family: 'Tahoma', 'MS Sans Serif', sans-serif;
+    font-size: 11px;
+    color: #FFFFFF;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 12px;
+    border: 1px solid #333;
+    z-index: 1000;
+    user-select: all;
+}
+
+/* DEBUG: Instructions Modal Styles */
+.instructions-content {
+    max-height: 400px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.instruction-section {
+    background: #FFFFFF;
+    border: 1px solid #000000;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.instruction-section h4 {
+    color: #000000;
+    font-family: 'Tahoma', 'MS Sans Serif', sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #000000;
+    padding-bottom: 4px;
+}
+
+.instruction-section ol,
+.instruction-section ul {
+    margin-left: 20px;
+    color: #000000;
+    font-family: 'Tahoma', 'MS Sans Serif', sans-serif;
+    font-size: 10px;
+    line-height: 1.6;
+}
+
+.instruction-section li {
+    margin-bottom: 6px;
+}
+
+.instruction-section li strong {
+    color: #003C74;
+}

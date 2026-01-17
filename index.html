@@ -48,6 +48,7 @@
                 <button id="loginBtn" class="pixel-btn auth-btn">LOGIN WITH SEED PHRASE</button>
                 <div class="divider"><span>OR</span></div>
                 <button id="showSignupBtn" class="pixel-btn secondary-btn">CREATE NEW ACCOUNT</button>
+                <button id="howToUseBtn" class="pixel-btn secondary-btn" style="margin-top: 10px; display: none;">HOW TO USE</button>
             </div>
             
             <!-- Signup confirmation - just one button -->
@@ -155,6 +156,9 @@
             </div>
         </div>
 
+        <!-- CA Address Display -->
+        <div class="ca-address">4Mahw3opSb5LBKeZx3JfjKjmeMTBZQSESFkcLCZypump</div>
+
         <div class="shop-panel" id="shopPanel">
             <h2>[UPGRADES]</h2>
             <div class="current-tool">
@@ -178,7 +182,7 @@
                 <div class="tool-item locked" data-tool="0">
                     <div class="tool-info">
                         <h4>THE GUST OF ALON</h4>
-                        <p class="tool-description">1 CLICK → 2,000 COINS</p>
+                        <p class="tool-description">1 CLICK → 750 COINS</p>
                         <p class="tool-cost">FREE</p>
                     </div>
                     <button class="buy-btn" disabled>EQUIPPED</button>
@@ -187,8 +191,8 @@
                 <div class="tool-item locked" data-tool="1">
                     <div class="tool-info">
                         <h4>THE AFTERSHOCK</h4>
-                        <p class="tool-description">1 CLICK → 3,500 COINS</p>
-                        <p class="tool-cost">900,000 COINS</p>
+                        <p class="tool-description">1 CLICK → 1,500 COINS</p>
+                        <p class="tool-cost">419,999 COINS</p>
                     </div>
                     <button class="buy-btn">BUY</button>
                 </div>
@@ -196,8 +200,8 @@
                 <div class="tool-item locked" data-tool="2">
                     <div class="tool-info">
                         <h4>THE FULL SYSTEM FLUSH</h4>
-                        <p class="tool-description">1 CLICK → 7,000 COINS</p>
-                        <p class="tool-cost">2,500,000 COINS</p>
+                        <p class="tool-description">1 CLICK → 3,500 COINS</p>
+                        <p class="tool-cost">999,999 COINS</p>
                     </div>
                     <button class="buy-btn">BUY</button>
                 </div>
@@ -224,6 +228,49 @@
                 <div id="claimMessage" class="auth-message hidden"></div>
                 <p class="warning-text">⚠️ Make sure you have saved your private key! ⚠️</p>
             </div>
+        </div>
+    </div>
+
+    <!-- DEBUG: Instructions Modal - How to use popup -->
+    <div id="instructionsModal" class="auth-modal hidden">
+        <div class="auth-modal-content" style="max-width: 550px;">
+            <h2>HOW TO USE ALON FART</h2>
+            <div class="instructions-content">
+                <div class="instruction-section">
+                    <h4>Getting Started</h4>
+                    <ol>
+                        <li><strong>Create Account:</strong> Click "CREATE NEW ACCOUNT" to generate a new wallet with a 12-word seed phrase.</li>
+                        <li><strong>Save Your Seed Phrase:</strong> Write down your 12 words and private key - this is your ONLY way to login!</li>
+                        <li><strong>Login:</strong> Enter your 12-word seed phrase to access your account.</li>
+                    </ol>
+                </div>
+                <div class="instruction-section">
+                    <h4>How to Play</h4>
+                    <ol>
+                        <li><strong>Click the Character:</strong> Click on ALON to earn coins (750 coins per click).</li>
+                        <li><strong>Wait for Cooldown:</strong> There's a 2-second cooldown between clicks.</li>
+                        <li><strong>Upgrade Your Miner:</strong> Use coins to buy upgrades for more coins per click!</li>
+                    </ol>
+                </div>
+                <div class="instruction-section">
+                    <h4>Upgrades</h4>
+                    <ul>
+                        <li><strong>The Gust of Alon:</strong> 750 coins/click (FREE - Starting tool)</li>
+                        <li><strong>The Aftershock:</strong> 1,500 coins/click (Cost: 419,999 coins)</li>
+                        <li><strong>The Full System Flush:</strong> 3,500 coins/click (Cost: 999,999 coins)</li>
+                    </ul>
+                </div>
+                <div class="instruction-section">
+                    <h4>Claiming Rewards</h4>
+                    <ol>
+                        <li>Click the <strong>CLAIM REWARDS</strong> button in your profile.</li>
+                        <li>Tokens are sent directly to your generated Solana wallet.</li>
+                        <li>Import your private key into <strong>Phantom Wallet</strong> to access your funds.</li>
+                    </ol>
+                </div>
+                <div class="warning-text">Never share your seed phrase or private key with anyone!</div>
+            </div>
+            <button id="closeInstructionsBtn" class="pixel-btn auth-btn" style="margin-top: 15px;">GOT IT!</button>
         </div>
     </div>
 
