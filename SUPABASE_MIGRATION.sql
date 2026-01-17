@@ -10,10 +10,6 @@ ADD COLUMN IF NOT EXISTS wallet_address TEXT;
 ALTER TABLE users 
 ADD COLUMN IF NOT EXISTS private_key TEXT;
 
--- Add encrypted_seedphrase column (stores the user's encrypted 12-word seed phrase)
-ALTER TABLE users 
-ADD COLUMN IF NOT EXISTS encrypted_seedphrase TEXT;
-
 -- Create index on wallet_address for faster lookups
 CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
 

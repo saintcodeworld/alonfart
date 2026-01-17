@@ -67,6 +67,7 @@ export class WithdrawalService {
     }
 
     // DEBUG: Create withdrawal request and process via backend API
+    // CRITICAL FIX: Balance is NOT deducted until blockchain transaction succeeds
     async createWithdrawalRequest(userId, amount, walletAddress) {
         console.log('[DEBUG] Creating and processing withdrawal request for user:', userId);
         
@@ -81,6 +82,7 @@ export class WithdrawalService {
                 throw new Error('Invalid Phantom wallet address');
             }
 
+            // DEBUG: Check user balance first (without deducting)
             const { data: userData, error: userError } = await this.supabase
                 .from('users')
                 .select('current_balance')
@@ -101,36 +103,33 @@ export class WithdrawalService {
                 throw new Error(`Minimum withdrawal amount is ${minWithdrawal} tokens`);
             }
 
-            console.log('[DEBUG] Creating withdrawal with status "sent" and processing immediately');
+            console.log('[DEBUG] Creating withdrawal record with status "pending" (balance NOT deducted yet)');
             
-            const { data: withdrawalId, error: withdrawalError } = await this.supabase
-                .rpc('process_withdrawal', {
+            // DEBUG: Create withdrawal record as PENDING - do NOT deduct balance yet
+            // Balance will only be deducted by backend AFTER successful blockchain transaction
+            const { data: withdrawalData, error: withdrawalError } = await this.supabase
+                .from('withdrawals')
+                .insert({
                     user_id: userId,
-                    withdrawal_amount: amount,
-                    wallet_address: walletAddress
-                });
+                    amount: amount,
+                    phantom_wallet_address: walletAddress,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .single();
 
             if (withdrawalError) {
                 console.error('[ERROR] Withdrawal creation failed:', withdrawalError);
                 throw withdrawalError;
             }
 
-            console.log('[DEBUG] Withdrawal created with ID:', withdrawalId);
+            const withdrawalId = withdrawalData.id;
+            console.log('[DEBUG] Withdrawal created with ID:', withdrawalId, '(balance still intact)');
             
-            // Update status to 'sent' immediately
-            const { error: statusError } = await this.supabase
-                .from('withdrawals')
-                .update({ status: 'sent' })
-                .eq('id', withdrawalId);
-                
-            if (statusError) {
-                console.error('[ERROR] Failed to update status to sent:', statusError);
-                throw statusError;
-            }
-
-            console.log('[DEBUG] Status updated to "sent", calling backend API for blockchain transaction...');
-            
-            // Process withdrawal via backend API (secure - private keys server-side)
+            // DEBUG: Process withdrawal via backend API
+            // Backend will deduct balance ONLY after successful blockchain transaction
+            console.log('[DEBUG] Calling backend API for blockchain transaction...');
             const result = await this.processWithdrawalViaBackend(withdrawalId, userId, amount, walletAddress);
             
             return result;

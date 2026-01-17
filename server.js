@@ -6,7 +6,10 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { Connection, Keypair, PublicKey, Transaction } = require('@solana/web3.js');
-const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = require('@solana/spl-token');
+const { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createTransferInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = require('@solana/spl-token');
+
+// DEBUG: Token-2022 program ID for tokens using the new token standard
+const TOKEN_2022_PROGRAM = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -42,6 +45,9 @@ debug('Solana connection initialized:', process.env.SOLANA_NETWORK);
 // Initialize treasury wallet from private key
 let treasuryKeypair = null;
 let tokenMint = null;
+
+// DEBUG: Token decimals - SPL tokens typically have 6 decimals
+const TOKEN_DECIMALS = 6;
 
 function initializeTreasury() {
     debug('Initializing treasury wallet...');
@@ -128,6 +134,11 @@ app.post('/api/withdraw', async (req, res) => {
         return res.status(500).json({ error: 'Treasury not configured' });
     }
     
+    // DEBUG: Convert amount to smallest units (multiply by 10^decimals)
+    // User's game balance is in whole tokens, but blockchain needs smallest units
+    const amountInSmallestUnits = BigInt(amount) * BigInt(10 ** TOKEN_DECIMALS);
+    debug('Amount conversion:', { originalAmount: amount, amountInSmallestUnits: amountInSmallestUnits.toString() });
+    
     try {
         // Validate wallet address
         let recipientPubkey;
@@ -150,59 +161,83 @@ app.post('/api/withdraw', async (req, res) => {
         }
         
         // Get or create token accounts
-        debug('Getting treasury token account...');
+        // DEBUG: Using Token-2022 program for this token
+        debug('Getting treasury token account (Token-2022)...');
         const treasuryTokenAccount = await getAssociatedTokenAddress(
             tokenMint,
-            treasuryKeypair.publicKey
+            treasuryKeypair.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
         debug('Treasury token account:', treasuryTokenAccount.toString());
         
-        debug('Getting recipient token account...');
+        debug('Getting recipient token account (Token-2022)...');
         const recipientTokenAccount = await getAssociatedTokenAddress(
             tokenMint,
-            recipientPubkey
+            recipientPubkey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
         debug('Recipient token account:', recipientTokenAccount.toString());
         
         // Check if recipient token account exists
         const recipientAccountInfo = await connection.getAccountInfo(recipientTokenAccount);
         
+        // DEBUG: Check if treasury token account exists BEFORE trying to get balance
+        const treasuryAccountInfo = await connection.getAccountInfo(treasuryTokenAccount);
+        if (!treasuryAccountInfo) {
+            console.error('[ERROR] Treasury token account does not exist! Treasury needs to receive tokens first.');
+            return res.status(500).json({ 
+                error: 'Treasury token account not initialized',
+                details: 'The treasury wallet needs to receive tokens to create its token account. Please fund the treasury first.'
+            });
+        }
+        
         // Build transaction
         const transaction = new Transaction();
         
-        // Create recipient token account if needed
+        // Create recipient token account if needed (using Token-2022)
         if (!recipientAccountInfo) {
-            debug('Creating recipient token account...');
+            debug('Creating recipient token account (Token-2022)...');
             transaction.add(
                 createAssociatedTokenAccountInstruction(
                     treasuryKeypair.publicKey,
                     recipientTokenAccount,
                     recipientPubkey,
-                    tokenMint
+                    tokenMint,
+                    TOKEN_2022_PROGRAM_ID,
+                    ASSOCIATED_TOKEN_PROGRAM_ID
                 )
             );
         }
         
-        // Check treasury token balance
+        // Check treasury token balance (now safe since we verified account exists)
         const treasuryBalance = await connection.getTokenAccountBalance(treasuryTokenAccount);
-        debug('Treasury token balance:', treasuryBalance.value.amount);
+        debug('Treasury token balance (smallest units):', treasuryBalance.value.amount);
+        debug('Treasury token balance (tokens):', treasuryBalance.value.uiAmount);
         
-        if (BigInt(treasuryBalance.value.amount) < BigInt(amount)) {
+        // DEBUG: Compare in smallest units for accurate balance check
+        if (BigInt(treasuryBalance.value.amount) < amountInSmallestUnits) {
             console.error('[ERROR] Insufficient treasury token balance');
             return res.status(500).json({ 
                 error: 'Insufficient treasury token balance',
-                details: `Has: ${treasuryBalance.value.amount}, Needs: ${amount}`
+                details: `Has: ${treasuryBalance.value.uiAmount} tokens, Needs: ${amount} tokens`
             });
         }
         
-        // Add transfer instruction
-        debug('Creating transfer instruction for', amount, 'tokens');
+        // Add transfer instruction (using Token-2022)
+        // DEBUG: Use amountInSmallestUnits for the actual blockchain transfer
+        debug('Creating transfer instruction for', amount, 'tokens (', amountInSmallestUnits.toString(), 'smallest units)');
         transaction.add(
             createTransferInstruction(
                 treasuryTokenAccount,
                 recipientTokenAccount,
                 treasuryKeypair.publicKey,
-                BigInt(amount)
+                amountInSmallestUnits,
+                [],
+                TOKEN_2022_PROGRAM_ID
             )
         );
         
@@ -236,6 +271,53 @@ app.post('/api/withdraw', async (req, res) => {
         
         debug('✅ TRANSACTION CONFIRMED');
         debug('Signature:', signature);
+        
+        // CRITICAL: Now deduct balance from user AFTER successful blockchain transaction
+        debug('Deducting balance from user after successful transaction...');
+        const { error: balanceError } = await supabase
+            .rpc('deduct_balance_after_withdrawal', {
+                p_user_id: userId,
+                p_amount: amount
+            });
+        
+        if (balanceError) {
+            console.error('[ERROR] RPC deduct_balance_after_withdrawal not found, using direct SQL...');
+            // Fallback: Use direct SQL query to deduct balance
+            const { error: directError } = await supabase
+                .rpc('sql', {
+                    query: `UPDATE users SET current_balance = current_balance - ${amount}, total_withdrawn = total_withdrawn + ${amount} WHERE id = '${userId}'`
+                });
+            
+            if (directError) {
+                // Second fallback: Fetch current values and update
+                console.error('[ERROR] Direct SQL also failed, trying fetch-update approach...');
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('current_balance, total_withdrawn')
+                    .eq('id', userId)
+                    .single();
+                
+                if (userData) {
+                    const newBalance = Math.max(0, userData.current_balance - amount);
+                    const newWithdrawn = userData.total_withdrawn + amount;
+                    
+                    const { error: updateErr } = await supabase
+                        .from('users')
+                        .update({
+                            current_balance: newBalance,
+                            total_withdrawn: newWithdrawn
+                        })
+                        .eq('id', userId);
+                    
+                    if (updateErr) {
+                        console.error('[ERROR] All balance deduction methods failed:', updateErr);
+                    } else {
+                        debug('Balance deducted via fetch-update fallback');
+                    }
+                }
+            }
+        }
+        debug('Balance deducted successfully');
         
         // Update withdrawal status in database
         const { error: updateError } = await supabase

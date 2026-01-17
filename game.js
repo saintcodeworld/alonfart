@@ -3,12 +3,12 @@ import { AuthManager } from './auth.js';
 import { WithdrawalService } from './withdrawal-service.js';
 import { WithdrawalProcessor } from './withdrawal-processor.js';
 import { initSupabase, getSupabaseClient } from './supabase-config.js';
-import { fakeChatManager } from './fake-chat.js';
+// Chat functionality removed
 
 const TOOLS = [
     { name: 'The Gust of Alon', hits: 1, coinsPerBreak: 2000, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'The Aftershock', hits: 1, coinsPerBreak: 3500, cost: 650000, image: 'assets/hand.png', model: null },
-    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 8000, cost: 1350000, image: 'assets/hand.png', model: null }
+    { name: 'The Aftershock', hits: 1, coinsPerBreak: 3500, cost: 900000, image: 'assets/hand.png', model: null },
+    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 7000, cost: 2500000, image: 'assets/hand.png', model: null }
 ];
 
 class Game {
@@ -33,14 +33,10 @@ class Game {
         this.coinCountElement = document.getElementById('coinCount');
         this.tokenBalance = document.getElementById('tokenBalance');
         this.tokensEarned = document.getElementById('tokensEarned');
-        this.shopDropdown = document.getElementById('shopDropdown');
-        this.chatToggleBtn = document.getElementById('chatToggleBtn');
-        this.liveChat = document.getElementById('liveChat');
+        this.shopPanel = document.getElementById('shopPanel');
         this.cube3D = null;
         
-        this.profileBtn = document.getElementById('profileBtn');
-        this.profileUsername = document.getElementById('profileUsername');
-        this.profileDropdown = document.getElementById('profileDropdown');
+        this.profilePanel = document.getElementById('profilePanel');
         this.withdrawBtn = document.getElementById('withdrawBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
         this.refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
@@ -103,9 +99,11 @@ class Game {
         this.cleanupCorruptedData();
         this.cube3D = new Cube3D('cubeContainer');
         
-        // DEBUG: Single click listener on cube container only - prevents multiple triggers
-        this.cubeContainer.addEventListener('click', (e) => this.handleCubeClick(e));
-        this.profileBtn.addEventListener('click', () => this.toggleProfile());
+        // DEBUG: Single click listener on cube container only to prevent multiple triggers
+        this.cubeContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.handleCubeClick(e);
+        });
         
         // Start withdrawal processor for automated processing
         this.withdrawalProcessor.start();
@@ -115,8 +113,6 @@ class Game {
         // DEBUG: Setup wallet info display in profile
         const showPrivateKeyBtn = document.getElementById('showPrivateKeyBtn');
         const copyPrivateKeyBtn = document.getElementById('copyPrivateKeyBtn');
-        const showSeedPhraseBtn = document.getElementById('showSeedPhraseBtn');
-        const copySeedPhraseBtn = document.getElementById('copySeedPhraseBtn');
         
         if (showPrivateKeyBtn) {
             showPrivateKeyBtn.addEventListener('click', () => this.togglePrivateKeyDisplay());
@@ -124,42 +120,14 @@ class Game {
         if (copyPrivateKeyBtn) {
             copyPrivateKeyBtn.addEventListener('click', () => this.copyPrivateKey());
         }
-        if (showSeedPhraseBtn) {
-            showSeedPhraseBtn.addEventListener('click', () => this.toggleSeedPhraseDisplay());
-        }
-        if (copySeedPhraseBtn) {
-            copySeedPhraseBtn.addEventListener('click', () => this.copySeedPhrase());
-        }
         this.logoutBtn.addEventListener('click', () => this.handleLogout());
         this.refreshHistoryBtn.addEventListener('click', () => this.refreshWithdrawalHistory());
-        this.chatToggleBtn.addEventListener('click', () => this.toggleChat());
         
         this.updateUI();
         this.setupShop();
         this.loadGame();
         this.loadUserStats();
-        
-        // DEBUG: Initialize fake live chat with real user wallet address
-        const userWalletAddress = this.currentUser?.wallet_address || null;
-        fakeChatManager.init(userWalletAddress);
-        console.log('[DEBUG] Fake chat initialized with user wallet:', userWalletAddress);
-        
-        // DEBUG: Make shop and profile always visible on load
-        this.shopDropdown.classList.remove('hidden');
-        this.profileDropdown.classList.remove('hidden');
-        this.loadUserStats();
-        
-        // DEBUG: Close chat popup when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.liveChat.contains(e.target) && e.target !== this.chatToggleBtn && !this.chatToggleBtn.contains(e.target)) {
-                this.liveChat.classList.add('hidden');
-            }
-        });
-    }
-    
-    toggleChat() {
-        console.log('[DEBUG] Toggling chat');
-        this.liveChat.classList.toggle('hidden');
+        this.loadWithdrawalHistory();
     }
     
     async handleCubeClick(e) {
@@ -216,6 +184,12 @@ class Game {
         this.totalMined += tokensEarned;
         
         if (this.currentUser) {
+            // Update the token balance display immediately for instant UI feedback
+            const currentBalance = parseFloat(this.tokenBalance.textContent.replace(/,/g, ''));
+            const newBalance = currentBalance + tokensEarned;
+            this.tokenBalance.textContent = newBalance.toLocaleString();
+            this.tokensEarned.textContent = (parseFloat(this.tokensEarned.textContent.replace(/,/g, '')) + tokensEarned).toLocaleString();
+            
             try {
                 await this.authManager.updateTokenBalance(this.currentUser.id, tokensEarned);
                 console.log('[DEBUG] Token balance updated in database');
@@ -246,15 +220,35 @@ class Game {
             
             this.profileUsername.textContent = stats.username.toUpperCase();
             document.getElementById('statUsername').textContent = stats.username;
-            document.getElementById('statBalance').textContent = stats.current_balance.toLocaleString();
-            document.getElementById('statTotalEarned').textContent = stats.total_earned.toLocaleString();
             document.getElementById('statWithdrawn').textContent = stats.total_withdrawn.toLocaleString();
             
-            this.tokenBalance.textContent = stats.current_balance.toLocaleString();
-            this.tokensEarned.textContent = stats.total_earned.toLocaleString();
+            // DEBUG: Use localStorage as source of truth for balance
+            // This prevents Supabase from overwriting local progress
+            const localBalance = this.coins;
+            const localTotalMined = this.totalMined;
             
-            // Update main coin display to show current coin balance
-            this.coinCountElement.textContent = stats.current_balance.toLocaleString();
+            // Use the higher value between local and Supabase (in case Supabase has valid data)
+            const displayBalance = Math.max(localBalance, stats.current_balance || 0);
+            const displayTotalEarned = Math.max(localTotalMined, stats.total_earned || 0);
+            
+            document.getElementById('statBalance').textContent = displayBalance.toLocaleString();
+            document.getElementById('statTotalEarned').textContent = displayTotalEarned.toLocaleString();
+            
+            this.tokenBalance.textContent = displayBalance.toLocaleString();
+            this.tokensEarned.textContent = displayTotalEarned.toLocaleString();
+            this.coinCountElement.textContent = displayBalance.toLocaleString();
+            
+            // DEBUG: Sync local balance to Supabase if local is higher
+            if (localBalance > (stats.current_balance || 0)) {
+                console.log('[DEBUG] Local balance higher than Supabase, syncing...');
+                const diff = localBalance - (stats.current_balance || 0);
+                try {
+                    await this.authManager.updateTokenBalance(this.currentUser.id, diff);
+                    console.log('[DEBUG] Synced local balance to Supabase');
+                } catch (syncError) {
+                    console.warn('[WARN] Failed to sync to Supabase:', syncError);
+                }
+            }
             
             // DEBUG: Display wallet address in profile (shortened)
             if (this.currentUser.wallet_address) {
@@ -266,6 +260,10 @@ class Game {
             await this.loadWithdrawalHistory();
         } catch (error) {
             console.error('[ERROR] Failed to load user stats:', error);
+            // DEBUG: Fallback to localStorage values on error
+            this.coinCountElement.textContent = this.coins.toLocaleString();
+            this.tokenBalance.textContent = this.coins.toLocaleString();
+            this.tokensEarned.textContent = this.totalMined.toLocaleString();
         }
     }
     
@@ -805,36 +803,6 @@ class Game {
         await this.copyToClipboard(privateKey, copyBtn);
     }
     
-    // DEBUG: Toggle seed phrase visibility in profile
-    async toggleSeedPhraseDisplay() {
-        console.log('[DEBUG] Toggling seed phrase display');
-        const seedPhraseSection = document.getElementById('seedPhraseSection');
-        const showBtn = document.getElementById('showSeedPhraseBtn');
-        
-        if (seedPhraseSection.classList.contains('hidden')) {
-            // Load and show seed phrase
-            try {
-                const seedphrase = await this.authManager.getSeedphrase(this.currentUser.id);
-                document.getElementById('statSeedPhrase').textContent = seedphrase;
-                seedPhraseSection.classList.remove('hidden');
-                showBtn.textContent = 'HIDE SEED PHRASE';
-            } catch (error) {
-                console.error('[ERROR] Failed to load seed phrase:', error);
-                alert('Failed to load seed phrase. Please try again.');
-            }
-        } else {
-            seedPhraseSection.classList.add('hidden');
-            showBtn.textContent = 'SHOW SEED PHRASE';
-        }
-    }
-    
-    // DEBUG: Copy seed phrase from profile
-    async copySeedPhrase() {
-        const seedPhrase = document.getElementById('statSeedPhrase').textContent;
-        const copyBtn = document.getElementById('copySeedPhraseBtn');
-        await this.copyToClipboard(seedPhrase, copyBtn);
-    }
-    
     // DEBUG: Show claim rewards modal
     showClaimModal() {
         console.log('[DEBUG] Opening claim rewards modal');
@@ -842,17 +810,16 @@ class Game {
         claimModal.classList.remove('hidden');
         
         if (this.currentUser) {
-            this.loadUserStats().then(() => {
-                const balance = document.getElementById('statBalance').textContent;
-                document.getElementById('claimBalance').textContent = balance;
-                
-                // Show wallet address (shortened)
-                const walletAddr = this.currentUser.wallet_address;
-                if (walletAddr) {
-                    document.getElementById('claimWalletAddress').textContent = 
-                        walletAddr.substring(0, 8) + '...' + walletAddr.substring(walletAddr.length - 4);
-                }
-            });
+            // DEBUG: Use this.coins (localStorage) directly as source of truth
+            document.getElementById('claimBalance').textContent = this.coins.toLocaleString();
+            console.log('[DEBUG] Claim modal balance set to:', this.coins);
+            
+            // Show wallet address (shortened)
+            const walletAddr = this.currentUser.wallet_address;
+            if (walletAddr) {
+                document.getElementById('claimWalletAddress').textContent = 
+                    walletAddr.substring(0, 8) + '...' + walletAddr.substring(walletAddr.length - 4);
+            }
         }
         
         const confirmBtn = document.getElementById('confirmClaimBtn');
@@ -877,9 +844,9 @@ class Game {
             return;
         }
         
-        // Get current balance
-        const balanceText = document.getElementById('claimBalance').textContent;
-        const balance = parseInt(balanceText.replace(/,/g, ''));
+        // DEBUG: Use this.coins (localStorage) directly as source of truth
+        const balance = this.coins;
+        console.log('[DEBUG] Claiming balance:', balance);
         
         if (!balance || balance <= 0) {
             messageEl.textContent = 'No tokens to claim.';
@@ -911,6 +878,12 @@ class Game {
             messageEl.textContent = 'Tokens claimed successfully! Check your wallet.';
             messageEl.className = 'auth-message success';
             messageEl.classList.remove('hidden');
+            
+            // DEBUG: Reset local balance after successful claim
+            this.coins = 0;
+            this.saveGame();
+            this.updateUI();
+            console.log('[DEBUG] Local balance reset to 0 after claim');
             
             await this.loadUserStats();
             await this.loadWithdrawalHistory();
@@ -956,11 +929,4 @@ class Game {
 
 window.addEventListener('DOMContentLoaded', () => {
     const game = new Game();
-    
-    // Cleanup on page unload/reload to prevent rendering issues
-    window.addEventListener('beforeunload', () => {
-        if (game.cube3D) {
-            game.cube3D.forceClear();
-        }
-    });
 });

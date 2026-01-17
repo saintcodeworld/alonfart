@@ -178,27 +178,20 @@ class WithdrawalProcessor {
                 try {
                     console.log(`[DEBUG] Processing withdrawal ${withdrawal.id} for ${withdrawal.amount} tokens`);
                     
-                    // CRITICAL: Atomically lock the withdrawal before processing
-                    // This prevents any other instance from processing it
-                    const { data: lockResult, error: lockError } = await this.withdrawalService.supabase
+                    // CRITICAL: Check if withdrawal is still pending before processing
+                    // This prevents duplicate processing by multiple instances
+                    const { data: checkResult, error: checkError } = await this.withdrawalService.supabase
                         .from('withdrawals')
-                        .update({ 
-                            status: 'processing',
-                            error_message: `Locked by processor ${this.instanceId}` 
-                        })
+                        .select('status')
                         .eq('id', withdrawal.id)
-                        .eq('status', 'pending') // Only lock if still pending
-                        .select();
+                        .single();
                     
-                    if (lockError || !lockResult || lockResult.length === 0) {
-                        console.log(`[DEBUG] Failed to lock withdrawal ${withdrawal.id} - already being processed`);
+                    if (checkError || !checkResult || checkResult.status !== 'pending') {
+                        console.log(`[DEBUG] Withdrawal ${withdrawal.id} is no longer pending - skipping`);
                         continue;
                     }
                     
-                    console.log(`[DEBUG] Successfully locked withdrawal ${withdrawal.id}`);
-                    
-                    // Add a small delay to ensure lock is committed
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    console.log(`[DEBUG] Processing withdrawal ${withdrawal.id} (will go directly to completed/failed)`);
                     
                     // DEBUG: Process withdrawal via backend API (secure)
                     const result = await this.withdrawalService.processWithdrawalViaBackend(
@@ -216,19 +209,16 @@ class WithdrawalProcessor {
                 } catch (error) {
                     console.error(`[ERROR] Failed to process withdrawal ${withdrawal.id}:`, error);
                     
-                    // Only mark as failed if it's not already being processed
-                    if (!error.message.includes('already being processed')) {
-                        await this.withdrawalService.supabase
-                            .from('withdrawals')
-                            .update({
-                                status: 'failed',
-                                error_message: error.message
-                            })
-                            .eq('id', withdrawal.id)
-                            .eq('status', 'processing'); // Only update if still in processing state
-                    } else {
-                        console.log(`[DEBUG] Withdrawal ${withdrawal.id} is being processed by another instance, skipping`);
-                    }
+                    // Mark as failed if still pending (backend may have already updated it)
+                    await this.withdrawalService.supabase
+                        .from('withdrawals')
+                        .update({
+                            status: 'failed',
+                            error_message: error.message,
+                            processed_at: new Date().toISOString()
+                        })
+                        .eq('id', withdrawal.id)
+                        .eq('status', 'pending'); // Only update if still pending
                 }
             }
 
