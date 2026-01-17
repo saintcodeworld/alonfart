@@ -6,9 +6,9 @@ import { initSupabase, getSupabaseClient } from './supabase-config.js';
 // Chat functionality removed
 
 const TOOLS = [
-    { name: 'The Gust of Alon', hits: 1, coinsPerBreak: 2000, cost: 0, image: 'assets/hand.png', model: null },
-    { name: 'The Aftershock', hits: 1, coinsPerBreak: 3500, cost: 900000, image: 'assets/hand.png', model: null },
-    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 7000, cost: 2500000, image: 'assets/hand.png', model: null }
+    { name: 'The Gust of Alon', hits: 1, coinsPerBreak: 750, cost: 0, image: 'assets/hand.png', model: null },
+    { name: 'The Aftershock', hits: 1, coinsPerBreak: 1500, cost: 419999, image: 'assets/hand.png', model: null },
+    { name: 'The Full System Flush', hits: 1, coinsPerBreak: 3500, cost: 999999, image: 'assets/hand.png', model: null }
 ];
 
 class Game {
@@ -26,6 +26,14 @@ class Game {
         this.withdrawalProcessor = new WithdrawalProcessor();
         this.currentUser = null;
         this.userSeedphrase = null;
+        
+        // DEBUG: Flag to force server balance after withdrawal (prevents stale local data)
+        this.forceServerBalance = false;
+        
+        // DEBUG: Click cooldown to prevent auto-clickers (2 second delay)
+        this.lastClickTime = 0;
+        this.clickCooldown = 2000; // 2 seconds in milliseconds
+        this.cooldownOverlay = null;
         
         this.authModal = document.getElementById('authModal');
         this.gameContainer = document.getElementById('gameContainer');
@@ -141,6 +149,21 @@ class Game {
     
     async handleCubeClick(e) {
         console.log('[DEBUG] Cube clicked');
+        
+        // DEBUG: Check click cooldown to prevent auto-clickers
+        const now = Date.now();
+        const timeSinceLastClick = now - this.lastClickTime;
+        
+        if (timeSinceLastClick < this.clickCooldown) {
+            const remainingTime = ((this.clickCooldown - timeSinceLastClick) / 1000).toFixed(1);
+            console.log(`[DEBUG] Click blocked - cooldown active. ${remainingTime}s remaining`);
+            return; // Block the click
+        }
+        
+        // DEBUG: Update last click time and start cooldown indicator
+        this.lastClickTime = now;
+        this.startCooldownIndicator();
+        
         this.currentHits++;
         
         // DEBUG: Play fart sound on every click
@@ -219,6 +242,43 @@ class Game {
         }
     }
     
+    // DEBUG: Start cooldown indicator overlay on cube
+    startCooldownIndicator() {
+        console.log('[DEBUG] Starting cooldown indicator');
+        
+        // Create overlay if it doesn't exist
+        if (!this.cooldownOverlay) {
+            this.cooldownOverlay = document.createElement('div');
+            this.cooldownOverlay.className = 'cooldown-overlay';
+            this.cooldownOverlay.innerHTML = `
+                <div class="cooldown-progress"></div>
+                <span class="cooldown-text">WAIT</span>
+            `;
+            this.cubeContainer.appendChild(this.cooldownOverlay);
+        }
+        
+        // Show and animate the overlay
+        const overlay = this.cooldownOverlay;
+        const progressBar = overlay.querySelector('.cooldown-progress');
+        
+        overlay.classList.add('active');
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '100%';
+        
+        // Force reflow to restart animation
+        progressBar.offsetHeight;
+        
+        // Animate progress bar shrinking over cooldown duration
+        progressBar.style.transition = `width ${this.clickCooldown}ms linear`;
+        progressBar.style.width = '0%';
+        
+        // Hide overlay after cooldown
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            console.log('[DEBUG] Cooldown complete - click ready');
+        }, this.clickCooldown);
+    }
+    
     async loadUserStats() {
         console.log('[DEBUG] Loading user stats');
         if (!this.currentUser) return;
@@ -242,9 +302,24 @@ class Game {
             const localBalance = this.coins;
             const localTotalMined = this.totalMined;
             
-            // Use the higher value between local and Supabase (in case Supabase has valid data)
-            const displayBalance = Math.max(localBalance, dbBalance);
-            const displayTotalEarned = Math.max(localTotalMined, dbTotalEarned);
+            // DEBUG: After withdrawal, force use of server values to show correct balance
+            let displayBalance, displayTotalEarned;
+            
+            if (this.forceServerBalance) {
+                // After withdrawal, trust server values and sync local state
+                console.log('[DEBUG] Forcing server balance after withdrawal');
+                displayBalance = dbBalance;
+                displayTotalEarned = dbTotalEarned;
+                this.coins = dbBalance;
+                this.totalMined = dbTotalEarned;
+                this.forceServerBalance = false;
+                this.saveGame();
+                console.log('[DEBUG] Local state synced with server: balance=', dbBalance, 'totalEarned=', dbTotalEarned);
+            } else {
+                // Normal operation: use higher of local/server
+                displayBalance = Math.max(localBalance, dbBalance);
+                displayTotalEarned = Math.max(localTotalMined, dbTotalEarned);
+            }
             
             document.getElementById('statBalance').textContent = displayBalance.toLocaleString();
             document.getElementById('statTotalEarned').textContent = displayTotalEarned.toLocaleString();
@@ -568,6 +643,25 @@ class Game {
         
         showSignupBtn.addEventListener('click', () => this.showSignupForm());
         backToLoginBtn.addEventListener('click', () => this.showLoginForm());
+        
+        // DEBUG: How to use button functionality
+        const howToUseBtn = document.getElementById('howToUseBtn');
+        const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
+        const instructionsModal = document.getElementById('instructionsModal');
+        
+        if (howToUseBtn) {
+            howToUseBtn.addEventListener('click', () => {
+                console.log('[DEBUG] Showing instructions modal');
+                instructionsModal.classList.remove('hidden');
+            });
+        }
+        
+        if (closeInstructionsBtn) {
+            closeInstructionsBtn.addEventListener('click', () => {
+                console.log('[DEBUG] Closing instructions modal');
+                instructionsModal.classList.add('hidden');
+            });
+        }
     }
     
     showLoginForm() {
@@ -694,6 +788,13 @@ class Game {
         confirmBtn.parentNode.insertBefore(copyWalletBtn, confirmBtn);
         
         copyWalletBtn.addEventListener('click', () => this.copyToClipboard(wallet.privateKey, copyWalletBtn));
+        
+        // DEBUG: Show instructions modal automatically after account generation
+        const instructionsModal = document.getElementById('instructionsModal');
+        if (instructionsModal) {
+            console.log('[DEBUG] Showing instructions modal after account generation');
+            instructionsModal.classList.remove('hidden');
+        }
     }
     
     // DEBUG: Generic copy to clipboard function
@@ -897,11 +998,13 @@ class Game {
             messageEl.className = 'auth-message success';
             messageEl.classList.remove('hidden');
             
-            // DEBUG: Reset local balance after successful claim
+            // DEBUG: Reset local balance after successful claim and force server refresh
             this.coins = 0;
+            this.totalMined = 0;
+            this.forceServerBalance = true;  // Force next loadUserStats to use server values
             this.saveGame();
             this.updateUI();
-            console.log('[DEBUG] Local balance reset to 0 after claim');
+            console.log('[DEBUG] Local balance reset to 0 after claim, forceServerBalance=true');
             
             await this.loadUserStats();
             await this.loadWithdrawalHistory();
